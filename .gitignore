@@ -1,0 +1,32 @@
+/node_modules
+StudentOS-frontend/node_modules
+studentos-backend/node_modules
+StudentOS-backend/.env
+StudentOS-frontend/.env
+venv/
+
+# dependencies
+node_modules/
+
+# environment variables
+.env
+
+# build files
+dist/
+build/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# editor files
+.vscode/
+.idea/
+
+# misc
+.cache/
