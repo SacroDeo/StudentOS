@@ -5,9 +5,6 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { StudentInfoGate, GATE_CSS, STORAGE_KEY } from "../components/StudentInfoGate.jsx";
 import greenLogo from "../assets/studentos.png";
 import "./StudentOS.css";
-const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
-
-
 
 /* ─────────────── Icons ─────────────── */
 const ArrowRight = ({ size = 14, color = "currentColor" }) => (
@@ -271,7 +268,6 @@ function DemoComparison() {
 
   return (
     <div className="cmp-wrap" ref={wrapRef}>
-      {/* ── Left panel: ChatGPT ── */}
       <div className="cmp-panel cmp-gpt">
         <div className="cmp-gpt-layout">
           <div className="cmp-sidebar">
@@ -313,7 +309,6 @@ function DemoComparison() {
         </div>
       </div>
 
-      {/* ── Right panel: Examify ── */}
       <div className="cmp-panel cmp-ex">
         <div className="cmp-ex-topbar">
           <div className="cmp-ex-brand">
@@ -373,7 +368,6 @@ function DemoComparison() {
 export default function StudentOS() {
   const navigate = useNavigate();
 
-  // ── Student data: read once from localStorage on mount ──
   const [studentData, setStudentData] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -383,27 +377,18 @@ export default function StudentOS() {
     }
   });
 
-  // ── Gate state: shown only on-demand, never on page load ──
   const [showGate, setShowGate]         = useState(false);
   const [pendingRoute, setPendingRoute] = useState(null);
 
-  // ─────────────────────────────────────────────────────────
-  // handleProtectedNavigation
-  //   Called by every tool button/card/nav-link.
-  //   If student data exists → navigate immediately.
-  //   If not → store the intended path, open the gate.
-  // ─────────────────────────────────────────────────────────
   const handleProtectedNavigation = useCallback((path) => {
-    // Re-read from storage in case the tab just got the value
     let data = studentData;
     if (!data) {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         data = raw ? JSON.parse(raw) : null;
-        if (data) setStudentData(data); // sync state if found
-      } catch { /* ignore parse errors */ }
+        if (data) setStudentData(data);
+      } catch { /* ignore */ }
     }
-
     if (data) {
       navigate(path);
     } else {
@@ -412,11 +397,6 @@ export default function StudentOS() {
     }
   }, [studentData, navigate]);
 
-  // ─────────────────────────────────────────────────────────
-  // handleGateComplete
-  //   Called by StudentInfoGate after the form is submitted.
-  //   Saves data to state, hides gate, navigates to pending route.
-  // ─────────────────────────────────────────────────────────
   const handleGateComplete = useCallback((data) => {
     setStudentData(data);
     setShowGate(false);
@@ -426,20 +406,22 @@ export default function StudentOS() {
     });
   }, [navigate]);
 
-  // ─────────────────────────────────────────────────────────
-  // handleEditInfo
-  //   Clears stored data; does NOT force the gate open.
-  //   Gate only appears next time a tool is clicked.
-  // ─────────────────────────────────────────────────────────
   const handleEditInfo = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStudentData(null);
   }, []);
 
   // ── DOM / scroll effect ──
+  // FIX: Only inject GATE_CSS here.
+  // StudentOS.css is already bundled via `import "./StudentOS.css"` above.
+  // The original bug: `styleEl.textContent = CSS + GATE_CSS`
+  // `CSS` is an undefined variable — importing a .css file gives you
+  // nothing (or a Module object with CSS Modules), NOT a string.
+  // Concatenating undefined + string produces "undefinedGATE_CSS..."
+  // which corrupts the entire stylesheet and breaks the gate's styles.
   useEffect(() => {
     const styleEl = document.createElement("style");
-    styleEl.textContent = CSS + GATE_CSS;
+    styleEl.textContent = GATE_CSS; // ← FIXED: removed the bogus `CSS +`
     document.head.appendChild(styleEl);
 
     const scrollBar = document.createElement("div");
@@ -470,12 +452,10 @@ export default function StudentOS() {
 
   return (
     <div>
-      {/* ── Gate: rendered as overlay ONLY when showGate is true ── */}
       {showGate && (
         <StudentInfoGate onComplete={handleGateComplete} />
       )}
 
-      {/* Ambient background */}
       <div className="ns-bg">
         <div className="ns-mesh"/><div className="ns-grid"/>
         <div className="ns-orb ns-orb-1"/><div className="ns-orb ns-orb-2"/>
@@ -487,7 +467,6 @@ export default function StudentOS() {
         ))}
       </div>
 
-      {/* ── NAV ── */}
       <nav className="ns-nav">
         <div className="ns-nav-brand" onClick={() => navigate("/")}>
           <img src={greenLogo} alt="StudentOS" className="ns-nav-logo"/>
@@ -497,7 +476,6 @@ export default function StudentOS() {
           <li onClick={() => handleProtectedNavigation("/examify")}>Examify</li>
           <li onClick={() => handleProtectedNavigation("/handwriting")}>Riter</li>
         </ul>
-
         <div className="ns-nav-user">
           {studentData && (
             <span className="ns-nav-user-name">
@@ -505,22 +483,15 @@ export default function StudentOS() {
             </span>
           )}
           {studentData ? (
-            <button className="ns-nav-signout" onClick={handleEditInfo}>
-              Edit Info
-            </button>
+            <button className="ns-nav-signout" onClick={handleEditInfo}>Edit Info</button>
           ) : (
-            /* Show "Set Info" when no data — opens gate with no pending route */
-            <button className="ns-nav-signout" onClick={() => {
-              setPendingRoute(null);
-              setShowGate(true);
-            }}>
+            <button className="ns-nav-signout" onClick={() => { setPendingRoute(null); setShowGate(true); }}>
               Set Info
             </button>
           )}
         </div>
       </nav>
 
-      {/* ── HERO ── */}
       <section className="ns-hero">
         <div className="ns-hero-halo"/>
         <div className="ns-chip ns-chip-1"><span>⚡</span><span>Avg. answer</span><span className="ns-chip-val">~4s</span></div>
@@ -538,9 +509,7 @@ export default function StudentOS() {
           <span className="ns-hl2">the first time.</span>
         </h1>
 
-        <p className="ns-sub">
-          Structured, to-the-point answers that actually score marks.
-        </p>
+        <p className="ns-sub">Structured, to-the-point answers that actually score marks.</p>
 
         <div className="ns-hero-actions">
           <ClayBtn className="clay-primary" onClick={() => handleProtectedNavigation("/examify")}>
@@ -558,14 +527,12 @@ export default function StudentOS() {
         </div>
       </section>
 
-      {/* ── DIVIDER ── */}
       <div className="ns-divider">
         <div className="ns-div-line"/>
         <div className="ns-div-glyph"><span>◈</span><div className="ns-div-dot"/><span>◈</span></div>
         <div className="ns-div-line ns-div-line-r"/>
       </div>
 
-      {/* ── STATS ── */}
       <div className="ns-wrap" style={{ paddingTop: 36, paddingBottom: 72 }}>
         <div className="ns-stats sr">
           <div className="ns-stat">
@@ -586,14 +553,12 @@ export default function StudentOS() {
         </div>
       </div>
 
-      {/* ── DIVIDER ── */}
       <div className="ns-divider">
         <div className="ns-div-line"/>
         <div className="ns-div-glyph"><span>◈</span><div className="ns-div-dot"/><span>◈</span></div>
         <div className="ns-div-line ns-div-line-r"/>
       </div>
 
-      {/* ── DEMO: ChatGPT vs Examify ── */}
       <section className="ns-wrap">
         <div className="ns-label sr">Why Examify</div>
         <h2 className="ns-title sr sr-d1">ChatGPT vs Examify.</h2>
@@ -605,14 +570,12 @@ export default function StudentOS() {
         </div>
       </section>
 
-      {/* ── DIVIDER ── */}
       <div className="ns-divider">
         <div className="ns-div-line"/>
         <div className="ns-div-glyph"><span>◈</span><div className="ns-div-dot"/><span>◈</span></div>
         <div className="ns-div-line ns-div-line-r"/>
       </div>
 
-      {/* ── BENTO FEATURES ── */}
       <section className="ns-wrap">
         <div className="ns-label sr">Two Tools</div>
         <h2 className="ns-title sr sr-d1">Everything you need.<br/>Nothing you don't.</h2>
@@ -639,14 +602,12 @@ export default function StudentOS() {
         </div>
       </section>
 
-      {/* ── DIVIDER ── */}
       <div className="ns-divider">
         <div className="ns-div-line"/>
         <div className="ns-div-glyph"><span>◈</span><div className="ns-div-dot"/><span>◈</span></div>
         <div className="ns-div-line ns-div-line-r"/>
       </div>
 
-      {/* ── CTA ── */}
       <section className="ns-cta">
         <div className="ns-cta-aurora"/>
         <div className="ns-cta-wm">STUDENTOS</div>
@@ -659,7 +620,6 @@ export default function StudentOS() {
         </ClayBtn>
       </section>
 
-      {/* ── FOOTER ── */}
       <footer className="ns-footer">
         <div className="ns-footer-brand" onClick={() => navigate("/")}>
           <img src={greenLogo} alt="StudentOS" className="ns-footer-logo"/>

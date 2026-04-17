@@ -1,241 +1,406 @@
 // File: src/components/StudentInfoGate.jsx
 
 import { useState, useCallback } from "react";
-import { addDoc, collection } from "firebase/firestore";
-import { db } from "../firebase";
 
-const STORAGE_KEY = "studentData";
+export const STORAGE_KEY = "studentos_student_info";
 
-const FIELDS = [
-  { name: "name",           label: "Full Name",       placeholder: "e.g. Arjun Sharma",  type: "text" },
-  { name: "registerNumber", label: "Register Number", placeholder: "e.g. 21CS001",       type: "text" },
-  { name: "section",        label: "Section",         placeholder: "e.g. A",             type: "text" },
-  { name: "programme",      label: "Programme",       placeholder: "e.g. B.Tech CSE",    type: "text" },
-];
-
-const GATE_CSS = `
-.sig-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: #07070f;
-  display: flex; align-items: center; justify-content: center;
+/* ─────────────────────────────────────────────────────────────
+   GATE_CSS — injected at runtime by StudentOS.jsx
+   (only this string is injected; StudentOS.css is bundled normally)
+───────────────────────────────────────────────────────────── */
+export const GATE_CSS = `
+/* ── Gate overlay ── */
+.gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 24px;
-  font-family: 'Epilogue', system-ui, sans-serif;
+  background: rgba(7, 7, 15, 0.82);
+  backdrop-filter: blur(22px) saturate(180%);
+  animation: gateIn .35s cubic-bezier(0.16,1,0.3,1) forwards;
 }
-.sig-overlay::before {
-  content: '';
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(99,102,241,0.09) 0%, transparent 60%),
-    radial-gradient(ellipse 55% 45% at 80% 80%, rgba(200,255,62,0.04) 0%, transparent 55%);
+@keyframes gateIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-.sig-card {
-  position: relative; z-index: 1;
-  width: 100%; max-width: 440px;
-  background: #0b0b16;
-  border: 1px solid rgba(240,240,250,0.09);
+
+/* ── Gate card ── */
+.gate-card {
+  width: 100%;
+  max-width: 460px;
+  background: #0e0e1c;
+  border: 1px solid rgba(200,255,62,0.14);
   border-radius: 24px;
-  padding: 40px 36px 36px;
+  padding: 44px 40px 40px;
+  position: relative;
   box-shadow:
-    0 1px 0 1px rgba(255,255,255,0.05),
-    0 8px 32px rgba(0,0,0,0.55),
-    0 24px 64px rgba(0,0,0,0.35);
+    0 2px 0 1px rgba(200,255,62,0.12),
+    0 8px 0 0 rgba(110,140,8,0.25),
+    0 24px 60px rgba(0,0,0,0.70),
+    0 48px 100px rgba(0,0,0,0.40);
+  animation: cardUp .45s cubic-bezier(0.34,1.56,0.64,1) .08s both;
 }
-.sig-card::before {
+@keyframes cardUp {
+  from { opacity: 0; transform: translateY(36px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.gate-card::before {
   content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,255,62,0.28), transparent);
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,255,62,0.35), transparent);
   border-radius: 24px 24px 0 0;
+  pointer-events: none;
 }
-.sig-logo-row {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 28px;
-}
-.sig-logo-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #c8ff3e;
-  box-shadow: 0 0 8px rgba(200,255,62,0.5);
-}
-.sig-logo-text {
-  font-size: 13px; font-weight: 800; letter-spacing: -0.03em;
-  color: #f0f0fa;
-}
-.sig-logo-text em { font-style: normal; color: #c8ff3e; }
-.sig-heading {
-  font-size: 22px; font-weight: 900; letter-spacing: -0.04em;
-  color: #f0f0fa; line-height: 1.15; margin-bottom: 6px;
-}
-.sig-sub {
-  font-size: 13px; font-weight: 300; color: rgba(240,240,250,0.45);
-  line-height: 1.6; margin-bottom: 28px;
-}
-.sig-field { margin-bottom: 16px; }
-.sig-label {
-  display: block;
+
+/* ── Gate header ── */
+.gate-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: 'Fira Code', monospace;
-  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(240,240,250,0.38);
-  margin-bottom: 7px;
+  font-size: 9px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #c8ff3e;
+  margin-bottom: 14px;
 }
-.sig-input {
-  width: 100%; padding: 11px 14px;
-  background: rgba(240,240,250,0.04);
-  border: 1px solid rgba(240,240,250,0.09);
-  border-radius: 10px;
-  font-family: 'Epilogue', system-ui, sans-serif;
-  font-size: 14px; font-weight: 400;
+.gate-eyebrow-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #c8ff3e;
+  box-shadow: 0 0 8px #c8ff3e;
+  animation: gateDotPulse 2s ease-in-out infinite;
+}
+@keyframes gateDotPulse {
+  0%,100% { opacity:1; transform:scale(1);   }
+  50%      { opacity:.2; transform:scale(.5); }
+}
+.gate-title {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -.04em;
   color: #f0f0fa;
-  outline: none;
-  transition: border-color 0.18s, background 0.18s;
-  -webkit-appearance: none;
+  margin-bottom: 6px;
+  line-height: 1.15;
 }
-.sig-input::placeholder { color: rgba(240,240,250,0.22); }
-.sig-input:focus {
-  border-color: rgba(200,255,62,0.35);
-  background: rgba(200,255,62,0.04);
+.gate-title em {
+  font-style: normal;
+  color: #c8ff3e;
 }
-.sig-input.error { border-color: rgba(248,113,113,0.45); }
-.sig-error {
-  font-size: 11px; color: #f87171;
-  margin-top: 5px; display: flex; align-items: center; gap: 4px;
+.gate-sub {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(240,240,250,0.45);
+  margin-bottom: 34px;
+  line-height: 1.65;
 }
-.sig-submit {
-  width: 100%; margin-top: 8px;
-  padding: 13px 24px;
+
+/* ── Fields ── */
+.gate-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.gate-field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gate-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(240,240,250,0.35);
+  padding-left: 2px;
+}
+.gate-input, .gate-select {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(240,240,250,0.10);
+  background: rgba(240,240,250,0.05);
+  color: #f0f0fa;
   font-family: 'Epilogue', system-ui, sans-serif;
-  font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
-  border: none; border-radius: 12px; cursor: pointer;
-  background: linear-gradient(160deg, #d8ff6e 0%, #c8ff3e 100%);
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.gate-input::placeholder { color: rgba(240,240,250,0.22); }
+.gate-input:focus,
+.gate-select:focus {
+  border-color: rgba(200,255,62,0.40);
+  background: rgba(200,255,62,0.04);
+  box-shadow: 0 0 0 3px rgba(200,255,62,0.08);
+}
+.gate-select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(240,240,250,0.3)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+.gate-select option {
+  background: #0e0e1c;
+  color: #f0f0fa;
+}
+.gate-input-error {
+  border-color: rgba(248,113,113,0.50) !important;
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.10) !important;
+}
+.gate-error-msg {
+  font-family: 'Fira Code', monospace;
+  font-size: 9px;
+  color: #f87171;
+  letter-spacing: .06em;
+  padding-left: 2px;
+  animation: gateErrIn .2s ease forwards;
+}
+@keyframes gateErrIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Row layout for two fields ── */
+.gate-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Submit button ── */
+.gate-submit {
+  width: 100%;
+  padding: 15px 24px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Epilogue', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.02em;
   color: #07070f;
+  background: linear-gradient(160deg, #d8ff6e 0%, #c8ff3e 100%);
   box-shadow:
-    0 2px 0 1px rgba(200,255,62,0.75),
-    0 6px 0 0 rgba(110,140,8,0.45),
-    0 14px 28px rgba(0,0,0,0.45);
+    0 2px 0 1px rgba(200,255,62,0.85),
+    0 6px 0 0 rgba(130,170,10,0.55),
+    0 14px 28px rgba(0,0,0,0.55);
   transform: translateY(-2px);
-  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.2s, opacity 0.2s;
-  position: relative; overflow: hidden;
+  transition: transform .22s cubic-bezier(0.34,1.56,0.64,1), box-shadow .22s, opacity .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
 }
-.sig-submit::before {
+.gate-submit::before {
   content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 46%;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.22), transparent);
-  border-radius: 12px 12px 0 0; pointer-events: none;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 46%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.26), transparent);
+  border-radius: 14px 14px 0 0;
+  pointer-events: none;
 }
-.sig-submit:hover:not(:disabled) {
+.gate-submit:hover:not(:disabled) {
   transform: translateY(-4px);
   box-shadow:
-    0 3px 0 1px rgba(200,255,62,0.85),
-    0 10px 0 0 rgba(110,140,8,0.55),
-    0 22px 40px rgba(0,0,0,0.55);
+    0 3px 0 1px rgba(200,255,62,0.90),
+    0 10px 0 0 rgba(130,170,10,0.60),
+    0 20px 40px rgba(0,0,0,0.60);
 }
-.sig-submit:active:not(:disabled) { transform: translateY(0); }
-.sig-submit:disabled {
-  opacity: 0.38; cursor: not-allowed; transform: translateY(-2px);
+.gate-submit:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow:
+    0 1px 0 1px rgba(200,255,62,0.70),
+    0 3px 0 0 rgba(130,170,10,0.40),
+    0 6px 14px rgba(0,0,0,0.40);
 }
-.sig-note {
-  text-align: center; margin-top: 16px;
+.gate-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+/* ── Spinner ── */
+.gate-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(7,7,15,0.25);
+  border-top-color: #07070f;
+  border-radius: 50%;
+  animation: gateSpin .65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes gateSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Loading state overlay on card ── */
+.gate-card.gate-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: rgba(14,14,28,0.35);
+  pointer-events: all;
+  z-index: 10;
+}
+
+/* ── Privacy note ── */
+.gate-privacy {
+  margin-top: 16px;
   font-family: 'Fira Code', monospace;
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: rgba(240,240,250,0.2);
+  font-size: 9px;
+  letter-spacing: .09em;
+  color: rgba(240,240,250,0.22);
+  text-align: center;
+  line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+  .gate-card { padding: 32px 22px 28px; }
+  .gate-row  { grid-template-columns: 1fr; }
 }
 `;
 
-function StudentInfoGate({ onComplete }) {
-  const [values, setValues]   = useState({ name: "", registerNumber: "", section: "", programme: "" });
-  const [touched, setTouched] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+/* ─────────────────────────────────────────────────────────────
+   COMPONENT
+───────────────────────────────────────────────────────────── */
+const BOARDS  = ["CBSE", "ICSE", "IB", "State Board", "Cambridge", "Other"];
+const CLASSES = ["8", "9", "10", "11", "12", "Undergraduate", "Other"];
 
-  const isAllFilled = FIELDS.every(f => values[f.name].trim().length > 0);
+export function StudentInfoGate({ onComplete }) {
+  const [form, setForm] = useState({ name: "", class: "", board: "" });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setValues(prev => ({ ...prev, [name]: value }));
+  const set = useCallback((key, val) => {
+    setForm(f => ({ ...f, [key]: val }));
+    setErrors(e => ({ ...e, [key]: "" }));
   }, []);
 
-  const handleBlur = useCallback((e) => {
-    setTouched(prev => ({ ...prev, [e.target.name]: true }));
-  }, []);
+  const validate = () => {
+    const errs = {};
+    if (!form.name.trim())  errs.name  = "Please enter your name";
+    if (!form.class)        errs.class = "Select your class";
+    if (!form.board)        errs.board = "Select your board";
+    return errs;
+  };
 
-const handleSubmit = useCallback(async () => {
-  if (!isAllFilled) {
-    setTouched(FIELDS.reduce((acc, f) => ({ ...acc, [f.name]: true }), {}));
-    return;
-  }
+  const handleSubmit = useCallback(async () => {
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
 
-  const trimmed = Object.fromEntries(
-    Object.entries(values).map(([k, v]) => [k, v.trim()])
-  );
+    setLoading(true);
 
-  try {
-    // 🔥 SEND TO FIREBASE
-    await addDoc(collection(db, "students"), {
-      ...trimmed,
-      createdAt: new Date(),
-      userAgent: navigator.userAgent,
-    });
+    // Simulate a brief async save (e.g. future API call)
+    await new Promise(r => setTimeout(r, 900));
 
-    // ✅ KEEP LOCAL STORAGE (DON’T REMOVE THIS)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    const data = { name: form.name.trim(), class: form.class, board: form.board };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
 
-    setSubmitted(true);
-    onComplete(trimmed);
-
-  } catch (err) {
-    console.error("Firebase error:", err);
-    alert("Error saving data");
-  }
-}, [isAllFilled, values, onComplete]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === "Enter") handleSubmit();
-  }, [handleSubmit]);
-
-  if (submitted) return null;
-
-  const showError = (field) => touched[field] && values[field].trim().length === 0;
+    setLoading(false);
+    onComplete(data);
+  }, [form, onComplete]);
 
   return (
-    <div className="sig-overlay">
-      <div className="sig-card">
-        <div className="sig-logo-row">
-          <div className="sig-logo-dot"/>
-          <span className="sig-logo-text">Student<em>OS</em></span>
-        </div>
+    <div className="gate-overlay" onMouseDown={e => e.stopPropagation()}>
+      <div className={`gate-card${loading ? " gate-loading" : ""}`}>
 
-        <h1 className="sig-heading">Before you begin</h1>
-        <p className="sig-sub">
-          Enter your details once. They're stored locally and never sent to any server.
+        {/* Header */}
+        <div className="gate-eyebrow">
+          <div className="gate-eyebrow-dot"/>
+          Quick Setup
+        </div>
+        <div className="gate-title">
+          Welcome to <em>StudentOS</em>
+        </div>
+        <p className="gate-sub">
+          Tell us a bit about yourself so we can tailor answers to your board and class.
         </p>
 
-        {FIELDS.map(({ name, label, placeholder, type }) => (
-          <div className="sig-field" key={name}>
-            <label className="sig-label" htmlFor={`sig-${name}`}>{label}</label>
+        {/* Fields */}
+        <div className="gate-fields">
+          {/* Name */}
+          <div className="gate-field-wrap">
+            <label className="gate-label">Your Name</label>
             <input
-              id={`sig-${name}`}
-              className={`sig-input${showError(name) ? " error" : ""}`}
-              type={type}
-              name={name}
-              value={values[name]}
-              placeholder={placeholder}
-              autoComplete="off"
-              onChange={handleChange}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
+              className={`gate-input${errors.name ? " gate-input-error" : ""}`}
+              placeholder="e.g. Arjun Mehta"
+              value={form.name}
+              onChange={e => set("name", e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()}
+              disabled={loading}
+              autoFocus
             />
-            {showError(name) && (
-              <div className="sig-error">↑ This field is required</div>
-            )}
+            {errors.name && <span className="gate-error-msg">{errors.name}</span>}
           </div>
-        ))}
 
-        <button className="sig-submit" onClick={handleSubmit}>
-          Continue to StudentOS →
+          {/* Class + Board row */}
+          <div className="gate-row">
+            <div className="gate-field-wrap">
+              <label className="gate-label">Class</label>
+              <select
+                className={`gate-select${errors.class ? " gate-input-error" : ""}`}
+                value={form.class}
+                onChange={e => set("class", e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Select</option>
+                {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+              </select>
+              {errors.class && <span className="gate-error-msg">{errors.class}</span>}
+            </div>
+
+            <div className="gate-field-wrap">
+              <label className="gate-label">Board</label>
+              <select
+                className={`gate-select${errors.board ? " gate-input-error" : ""}`}
+                value={form.board}
+                onChange={e => set("board", e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Select</option>
+                {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+              {errors.board && <span className="gate-error-msg">{errors.board}</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <button className="gate-submit" onClick={handleSubmit} disabled={loading}>
+          {loading ? (
+            <>
+              <span className="gate-spinner"/>
+              Setting up your profile…
+            </>
+          ) : (
+            <>
+              Get Started
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="#07070f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </>
+          )}
         </button>
 
-        <p className="sig-note">Stored locally · Never uploaded</p>
+        <p className="gate-privacy">
+          Your info stays on your device · Never shared · Used only to format answers
+        </p>
       </div>
     </div>
   );
 }
-
-export { StudentInfoGate, GATE_CSS, STORAGE_KEY };
