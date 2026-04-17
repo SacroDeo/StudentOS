@@ -627,8 +627,8 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🚀 Examify backend running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+console.log(`\n🚀 Examify backend running on port ${PORT}`);
   console.log(`   Health:  http://localhost:${PORT}/api/health`);
   console.log(`   Queue:   http://localhost:${PORT}/api/queue`);
   console.log(`   Metrics: http://localhost:${PORT}/metrics`);

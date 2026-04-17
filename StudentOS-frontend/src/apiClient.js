@@ -8,7 +8,7 @@
 
 // Your Railway backend URL — set this in your .env file
 // e.g. VITE_API_URL=https://examify-backend.up.railway.app
-const API_BASE = "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_URL;
 // Token usage tracker (session-level, same as before)
 let _tokens = { prompt: 0, completion: 0 };
 
