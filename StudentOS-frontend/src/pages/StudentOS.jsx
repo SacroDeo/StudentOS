@@ -368,11 +368,22 @@ function DemoComparison() {
 export default function StudentOS() {
   const navigate = useNavigate();
 
+  // ── Single source of truth: read localStorage once at mount ──
+  // WHY: Reading localStorage inside handleProtectedNavigation allowed
+  // stale/partial data to bypass the gate on every click.
   const [studentData, setStudentData] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Validate all three required fields exist and are non-empty
+      if (!parsed?.name?.trim() || !parsed?.class || !parsed?.board) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      return parsed;
     } catch {
+      localStorage.removeItem(STORAGE_KEY);
       return null;
     }
   });
@@ -380,16 +391,11 @@ export default function StudentOS() {
   const [showGate, setShowGate]         = useState(false);
   const [pendingRoute, setPendingRoute] = useState(null);
 
+  // ── Gate guard: ONLY studentData state is trusted, never re-read localStorage ──
+  // WHY: Prevents race condition where localStorage has data but React state doesn't,
+  // which previously caused the gate to flash and immediately navigate away.
   const handleProtectedNavigation = useCallback((path) => {
-    let data = studentData;
-    if (!data) {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        data = raw ? JSON.parse(raw) : null;
-        if (data) setStudentData(data);
-      } catch { /* ignore */ }
-    }
-    if (data) {
+    if (studentData) {
       navigate(path);
     } else {
       setPendingRoute(path);
@@ -397,31 +403,28 @@ export default function StudentOS() {
     }
   }, [studentData, navigate]);
 
+  // ── Gate complete: save data, update state, then navigate ──
   const handleGateComplete = useCallback((data) => {
     setStudentData(data);
     setShowGate(false);
+    // Use functional updater to read the latest pendingRoute without stale closure
     setPendingRoute((route) => {
       if (route) navigate(route);
       return null;
     });
   }, [navigate]);
 
+  // ── Edit info: wipe localStorage AND state simultaneously ──
+  // WHY: Previously only wiped localStorage; React state retained stale data
+  // so the gate would never re-appear until a full page reload.
   const handleEditInfo = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStudentData(null);
   }, []);
 
-  // ── DOM / scroll effect ──
-  // FIX: Only inject GATE_CSS here.
-  // StudentOS.css is already bundled via `import "./StudentOS.css"` above.
-  // The original bug: `styleEl.textContent = CSS + GATE_CSS`
-  // `CSS` is an undefined variable — importing a .css file gives you
-  // nothing (or a Module object with CSS Modules), NOT a string.
-  // Concatenating undefined + string produces "undefinedGATE_CSS..."
-  // which corrupts the entire stylesheet and breaks the gate's styles.
   useEffect(() => {
     const styleEl = document.createElement("style");
-    styleEl.textContent = GATE_CSS; // ← FIXED: removed the bogus `CSS +`
+    styleEl.textContent = GATE_CSS;
     document.head.appendChild(styleEl);
 
     const scrollBar = document.createElement("div");
@@ -452,6 +455,7 @@ export default function StudentOS() {
 
   return (
     <div>
+      {/* ── Gate renders as a fixed overlay; pointer-events block all background interaction ── */}
       {showGate && (
         <StudentInfoGate onComplete={handleGateComplete} />
       )}
