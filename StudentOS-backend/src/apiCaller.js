@@ -12,7 +12,6 @@
 //    - markError imported once at top
 // ═══════════════════════════════════════════════════════════════
 
-const fetch = require("node-fetch").default;
 const throttle = require("./throttle"); // ✅ Phase 5: global token-bucket throttle
 
 const {
