@@ -410,19 +410,19 @@ export default function StudentOS() {
   const navigate = useNavigate();
 
   const [studentData, setStudentData] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.name?.trim() || !parsed?.class || !parsed?.board) {
-        localStorage.removeItem(STORAGE_KEY);
-        return null;
-      }
-      return parsed;
-    } catch {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.name?.trim() || !parsed?.registerNo || !parsed?.section || !parsed?.program) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
+    return parsed;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
   });
 
   const [showGate, setShowGate]         = useState(false);
