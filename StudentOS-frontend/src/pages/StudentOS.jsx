@@ -1,10 +1,14 @@
 // File: src/pages/StudentOS.jsx
+// Mobile-optimized version — backdrop-filter, particles, orbs, noise disabled on mobile
 
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { StudentInfoGate, GATE_CSS, STORAGE_KEY } from "../components/StudentInfoGate.jsx";
 import greenLogo from "../assets/studentos.png";
 import "./StudentOS.css";
+
+/* ─────────────── Mobile detection (run once at module level) ─────────────── */
+const IS_MOBILE = typeof window !== "undefined" && window.innerWidth <= 768;
 
 /* ─────────────── Icons ─────────────── */
 const ArrowRight = ({ size = 14, color = "currentColor" }) => (
@@ -48,7 +52,8 @@ const EX_POINTS = [
   { kw: "Separation of Powers", rest: " — legislature, executive, and judiciary function independently." },
 ];
 
-const PARTICLES = Array.from({ length: 7 }, (_, i) => ({
+/* ─────────────── Particles — ZERO on mobile ─────────────── */
+const PARTICLES = IS_MOBILE ? [] : Array.from({ length: 7 }, (_, i) => ({
   id: i, left: `${8 + i * 12}%`,
   w: i % 3 === 0 ? 2 : 1.5,
   delay: `${-(i * 2.1)}s`,
@@ -60,6 +65,7 @@ const PARTICLES = Array.from({ length: 7 }, (_, i) => ({
 function ClayBtn({ className = "", children, onClick }) {
   const ref = useRef(null);
   const onMouseMove = useCallback((e) => {
+    if (IS_MOBILE) return; // skip magnetic effect on mobile
     const el = ref.current; if (!el) return;
     const r = el.getBoundingClientRect();
     const dx = (e.clientX - (r.left + r.width  / 2)) * 0.22;
@@ -68,6 +74,7 @@ function ClayBtn({ className = "", children, onClick }) {
     el.style.transform  = `translate(${dx}px,${dy}px) translateY(-3px)`;
   }, []);
   const onMouseLeave = useCallback(() => {
+    if (IS_MOBILE) return;
     const el = ref.current; if (!el) return;
     el.style.transition = "transform .55s cubic-bezier(0.34,1.56,0.64,1), box-shadow .25s";
     el.style.transform  = "translate(0,0) translateY(-3px)";
@@ -84,6 +91,7 @@ function ClayBtn({ className = "", children, onClick }) {
 function FeatCard({ className = "", children, onClick }) {
   const ref = useRef(null);
   const onMouseMove = useCallback((e) => {
+    if (IS_MOBILE) return; // skip spotlight on mobile
     const el = ref.current; if (!el) return;
     const r = el.getBoundingClientRect();
     el.style.setProperty('--fx', `${((e.clientX - r.left) / r.width  * 100).toFixed(1)}%`);
@@ -124,6 +132,7 @@ function Counter({ target, suffix = "", duration = 1800 }) {
 
 /* ═══════════════════════════════════════════════
    DEMO COMPONENT — ChatGPT vs Examify
+   On mobile: skip typing animation, show static content instantly
 ═══════════════════════════════════════════════ */
 function DemoComparison() {
   const wrapRef    = useRef(null);
@@ -185,6 +194,17 @@ function DemoComparison() {
       wrap.className = 'cmp-gpt-msg-wrap';
       const bub = document.createElement('div');
       bub.className = 'cmp-gpt-bubble';
+
+      // On mobile: skip character-by-character typing, render all at once
+      if (IS_MOBILE) {
+        bub.textContent = text;
+        wrap.appendChild(bub);
+        gptFeedRef.current.appendChild(wrap);
+        scrollFeed();
+        resolve();
+        return;
+      }
+
       const cursor = document.createElement('span');
       cursor.className = 'cmp-cur-g';
       bub.appendChild(cursor);
@@ -207,6 +227,11 @@ function DemoComparison() {
   };
 
   const launchGptClock = () => {
+    if (IS_MOBILE) {
+      // Static on mobile — no interval
+      if (gptTimeRef.current) gptTimeRef.current.textContent = '28:00';
+      return;
+    }
     let s = 1680;
     const tick = () => {
       s = Math.max(0, s - 1);
@@ -218,6 +243,17 @@ function DemoComparison() {
   };
 
   const launchExamify = () => {
+    if (IS_MOBILE) {
+      // Show completed state instantly on mobile
+      if (exTimeRef.current) exTimeRef.current.textContent = '00:04';
+      if (exDoneRef.current) exDoneRef.current.classList.add('show');
+      if (exPillRef.current) exPillRef.current.textContent = 'Complete ✓';
+      if (exOutRef.current)   exOutRef.current.classList.add('show');
+      if (exIntroRef.current) exIntroRef.current.classList.add('show');
+      if (exStatRef.current)  exStatRef.current.textContent = 'Complete';
+      ptRefs.forEach(r => { if (r.current) r.current.classList.add('show'); });
+      return;
+    }
     let s = 0;
     const tick = () => {
       s++;
@@ -246,15 +282,20 @@ function DemoComparison() {
       appendUserBubble(round.user, round.angry);
       if (roundRef.current) roundRef.current.textContent = `Round ${idx + 1} / ${GPT_ROUNDS.length}`;
       if (frustRef.current) frustRef.current.style.width = `${((idx + 1) / GPT_ROUNDS.length) * 100}%`;
-      const dots = appendTypingDots();
-      await new Promise(r => setTimeout(r, round.thinkMs));
-      if (dots) dots.remove();
+
+      // On mobile: skip think delay for snappiness
+      if (!IS_MOBILE) {
+        const dots = appendTypingDots();
+        await new Promise(r => setTimeout(r, round.thinkMs));
+        if (dots) dots.remove();
+      }
+
       if (idx === GPT_ROUNDS.length - 1 && roundRef.current) {
         roundRef.current.textContent = '4 rounds later...';
         roundRef.current.style.color = '#e87171';
       }
       await appendGptReply(round.reply);
-      if (idx < GPT_ROUNDS.length - 1) {
+      if (idx < GPT_ROUNDS.length - 1 && !IS_MOBILE) {
         await new Promise(r => setTimeout(r, 1200));
       }
     }
@@ -368,15 +409,11 @@ function DemoComparison() {
 export default function StudentOS() {
   const navigate = useNavigate();
 
-  // ── Single source of truth: read localStorage once at mount ──
-  // WHY: Reading localStorage inside handleProtectedNavigation allowed
-  // stale/partial data to bypass the gate on every click.
   const [studentData, setStudentData] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      // Validate all three required fields exist and are non-empty
       if (!parsed?.name?.trim() || !parsed?.class || !parsed?.board) {
         localStorage.removeItem(STORAGE_KEY);
         return null;
@@ -391,9 +428,6 @@ export default function StudentOS() {
   const [showGate, setShowGate]         = useState(false);
   const [pendingRoute, setPendingRoute] = useState(null);
 
-  // ── Gate guard: ONLY studentData state is trusted, never re-read localStorage ──
-  // WHY: Prevents race condition where localStorage has data but React state doesn't,
-  // which previously caused the gate to flash and immediately navigate away.
   const handleProtectedNavigation = useCallback((path) => {
     if (studentData) {
       navigate(path);
@@ -403,20 +437,15 @@ export default function StudentOS() {
     }
   }, [studentData, navigate]);
 
-  // ── Gate complete: save data, update state, then navigate ──
   const handleGateComplete = useCallback((data) => {
     setStudentData(data);
     setShowGate(false);
-    // Use functional updater to read the latest pendingRoute without stale closure
     setPendingRoute((route) => {
       if (route) navigate(route);
       return null;
     });
   }, [navigate]);
 
-  // ── Edit info: wipe localStorage AND state simultaneously ──
-  // WHY: Previously only wiped localStorage; React state retained stale data
-  // so the gate would never re-appear until a full page reload.
   const handleEditInfo = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setStudentData(null);
@@ -427,15 +456,19 @@ export default function StudentOS() {
     styleEl.textContent = GATE_CSS;
     document.head.appendChild(styleEl);
 
-    const scrollBar = document.createElement("div");
-    scrollBar.id = "scroll-bar";
-    document.body.prepend(scrollBar);
-
-    const onScroll = () => {
-      const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
-      scrollBar.style.width = `${pct}%`;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    // Scroll bar — skip on mobile (saves a paint per scroll event)
+    let scrollBar = null;
+    let onScroll  = null;
+    if (!IS_MOBILE) {
+      scrollBar = document.createElement("div");
+      scrollBar.id = "scroll-bar";
+      document.body.prepend(scrollBar);
+      onScroll = () => {
+        const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+        scrollBar.style.width = `${pct}%`;
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+    }
 
     const obs = new IntersectionObserver(
       (entries) => entries.forEach(e => {
@@ -447,22 +480,24 @@ export default function StudentOS() {
 
     return () => {
       document.head.removeChild(styleEl);
-      if (document.body.contains(scrollBar)) document.body.removeChild(scrollBar);
-      window.removeEventListener("scroll", onScroll);
+      if (scrollBar && document.body.contains(scrollBar)) document.body.removeChild(scrollBar);
+      if (onScroll) window.removeEventListener("scroll", onScroll);
       obs.disconnect();
     };
   }, []);
 
   return (
     <div>
-      {/* ── Gate renders as a fixed overlay; pointer-events block all background interaction ── */}
-      {showGate && (
-        <StudentInfoGate onComplete={handleGateComplete} />
-      )}
+      {showGate && <StudentInfoGate onComplete={handleGateComplete} />}
 
       <div className="ns-bg">
-        <div className="ns-mesh"/><div className="ns-grid"/>
-        <div className="ns-orb ns-orb-1"/><div className="ns-orb ns-orb-2"/>
+        <div className="ns-mesh"/>
+        <div className="ns-grid"/>
+        {/* Orbs — hidden via CSS on mobile, not rendered at all on mobile */}
+        {!IS_MOBILE && <>
+          <div className="ns-orb ns-orb-1"/>
+          <div className="ns-orb ns-orb-2"/>
+        </>}
         {PARTICLES.map(p => (
           <div key={p.id} className="ns-particle" style={{
             left: p.left, width:`${p.w}px`, height:`${p.w}px`,
