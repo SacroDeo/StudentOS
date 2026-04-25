@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-
+// Real scanned paper photo — used as canvas background for realism
+const REAL_PAPER_IMG = (() => {
+  const img = new Image();
+  img.src = `data:image/jpeg;base64,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`;
+  return img;
+})();
 /* ─────────────────────────────────────────
    FONTS
 ───────────────────────────────────────── */
@@ -127,7 +132,7 @@ const INKS = [
 const PAPERS = [
   { id:"a4ruled",   label:"A4 Ruled",  lineH:32, margin:80, leftMargin:80, hasMarginLine:true,  isGrid:false },
   { id:"a4college", label:"College",   lineH:26, margin:80, leftMargin:80, hasMarginLine:true,  isGrid:false, holePunch:true },
-  { id:"a4plain",   label:"Plain",     lineH:0,  margin:80, leftMargin:80, hasMarginLine:false, isGrid:false },
+  { id:"a4plain", label:"Plain", lineH:0, margin:60, leftMargin:48, hasMarginLine:false, isGrid:false },
   { id:"a4grid",    label:"Grid",      lineH:26, margin:80, leftMargin:80, hasMarginLine:false, isGrid:true  },
   { id:"legal",     label:"Legal",     lineH:32, margin:80, leftMargin:80, hasMarginLine:true,  isGrid:false, tall:true },
   { id:"narrow",    label:"Narrow",    lineH:22, margin:80, leftMargin:80, hasMarginLine:true,  isGrid:false },
@@ -391,20 +396,19 @@ function drawPage(lines, paper, fontFamily, ink, fontSize, pageNum, totalPages, 
 
   // ── FIX #8: Realistic paper background — warm cream with slight variation
   // Base: warm off-white, not pure white
-  ctx.fillStyle = "#faf8f0";
-  ctx.fillRect(0, 0, W, H);
-
-  // Warm gradient for slight uneven aging
-  const pg = ctx.createLinearGradient(0, 0, W, H);
-  pg.addColorStop(0,   "rgba(250,240,200,0.18)");
-  pg.addColorStop(0.4, "rgba(255,250,230,0.08)");
-  pg.addColorStop(1,   "rgba(230,220,180,0.14)");
-  ctx.fillStyle = pg;
-  ctx.fillRect(0, 0, W, H);
-
-  // FIX #8: pixel-level grain texture (deterministic via page-seeded rng)
+  // ── REAL PAPER PHOTO background
   const textureRng = mkRng(pageNum * 7919 + 12345);
-  applyPaperTexture(ctx, W, H, textureRng);
+  try {
+    if (REAL_PAPER_IMG.complete && REAL_PAPER_IMG.naturalWidth > 0) {
+      ctx.drawImage(REAL_PAPER_IMG, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = "#f5f0e8";
+      ctx.fillRect(0, 0, W, H);
+    }
+  } catch(_) {
+    ctx.fillStyle = "#f5f0e8";
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // ── Ruled lines / grid
   if (isGrid) {
@@ -506,7 +510,6 @@ function drawPage(lines, paper, fontFamily, ink, fontSize, pageNum, totalPages, 
   // ── FIX #1: REMOVE applyScannerFilter entirely.
   // Instead: subtle aged-scan overlay — slight contrast boost without destroying color
   // This simulates a light scan without grayscaling the ink.
-  applyAgedScanOverlay(ctx, W, H, textureRng);
 
   return canvas;
 }
