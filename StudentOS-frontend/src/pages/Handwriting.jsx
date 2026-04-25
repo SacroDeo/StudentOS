@@ -386,7 +386,7 @@ function drawPage(lines, paper, fontFamily, ink, fontSize, pageNum, totalPages, 
   const { lineH, margin, leftMargin, hasMarginLine, isGrid, holePunch } = paper;
   const effLH = lineH > 0 ? lineH : Math.round(fontSize * 1.9);
   const topPad = margin;
-  const SCALE = 2;
+  const SCALE = 1.5;
 
   const canvas = document.createElement("canvas");
   canvas.width  = W * SCALE;
@@ -784,7 +784,7 @@ export default function Riter() {
       // Pass full ink object to drawPage
       const c=drawPage(ln,paper,font.family,ink,size.size,i+1,pages.length,imper);
       if(i>0)pdf.addPage();
-      pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,W*mm,H*mm);
+      pdf.addImage(c.toDataURL("image/jpeg",0.82),"JPEG",0,0,W*mm,H*mm);
     });
     pdf.save("riter.pdf");
   },[pages,paper,font,ink,size,imper]);
