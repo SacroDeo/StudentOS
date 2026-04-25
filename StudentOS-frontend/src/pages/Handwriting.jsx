@@ -29,7 +29,6 @@ const FONT_LINK = [
 ].join("&family=");
 
 const FONTS = [
-  // ── GROUP 1: Elegant Flowing Cursive (formal, connected, calligraphic)
   { id:"cedar",     label:"Cedarville Cursive",   family:"'Cedarville Cursive', cursive",      group:"Elegant Cursive" },
   { id:"homemade",  label:"Homemade Apple",        family:"'Homemade Apple', cursive",          group:"Elegant Cursive" },
   { id:"meddon",    label:"Meddon",                family:"'Meddon', cursive",                  group:"Elegant Cursive" },
@@ -60,14 +59,12 @@ const FONTS = [
   { id:"imperial",  label:"Imperial Script",       family:"'Imperial Script', cursive",         group:"Elegant Cursive" },
   { id:"birthstone",label:"Birthstone",            family:"'Birthstone', cursive",              group:"Elegant Cursive" },
   { id:"bstone2",   label:"Birthstone Bounce",     family:"'Birthstone Bounce', cursive",       group:"Elegant Cursive" },
-  { id:"shalimar",  label:"Shalimar",              family:"'Shalimar', cursive",                group:"Elegant Cursive" },
+  { id:"shalimar",  label:"Shalimar",              family:"'Shalimar', cursive",               group:"Elegant Cursive" },
   { id:"inspir",    label:"Inspiration",           family:"'Inspiration', cursive",             group:"Elegant Cursive" },
   { id:"praise",    label:"Praise",                family:"'Praise', cursive",                  group:"Elegant Cursive" },
   { id:"ephesis",   label:"Ephesis",               family:"'Ephesis', cursive",                 group:"Elegant Cursive" },
   { id:"fleurde",   label:"Fleur De Leah",         family:"'Fleur De Leah', cursive",           group:"Elegant Cursive" },
   { id:"carattere", label:"Carattere",             family:"'Carattere', cursive",               group:"Elegant Cursive" },
-
-  // ── GROUP 2: Casual / Fun Cursive (brushy, bouncy, expressive)
   { id:"dancing",   label:"Dancing Script",        family:"'Dancing Script', cursive",          group:"Casual Cursive" },
   { id:"satisfy",   label:"Satisfy",               family:"'Satisfy', cursive",                 group:"Casual Cursive" },
   { id:"courgette", label:"Courgette",             family:"'Courgette', cursive",               group:"Casual Cursive" },
@@ -84,8 +81,6 @@ const FONTS = [
   { id:"fasthand",  label:"Fasthand",              family:"'Fasthand', cursive",                group:"Casual Cursive" },
   { id:"merienda",  label:"Merienda",              family:"'Merienda', cursive",                group:"Casual Cursive" },
   { id:"molle",     label:"Molle",                 family:"'Molle', cursive",                   group:"Casual Cursive" },
-
-  // ── GROUP 3: Semi-Cursive / Natural Handwriting
   { id:"caveat",    label:"Caveat",                family:"'Caveat', cursive",                  group:"Natural Handwriting" },
   { id:"kalam",     label:"Kalam",                 family:"'Kalam', cursive",                   group:"Natural Handwriting" },
   { id:"handlee",   label:"Handlee",               family:"'Handlee', cursive",                 group:"Natural Handwriting" },
@@ -106,8 +101,6 @@ const FONTS = [
   { id:"julee",     label:"Julee",                 family:"'Julee', cursive",                   group:"Natural Handwriting" },
   { id:"craftygirl",label:"Crafty Girls",          family:"'Crafty Girls', cursive",            group:"Natural Handwriting" },
   { id:"suellen",   label:"Sue Ellen Francisco",   family:"'Sue Ellen Francisco', cursive",     group:"Natural Handwriting" },
-
-  // ── GROUP 4: Printed / Disconnected Handwriting
   { id:"indie",     label:"Indie Flower",          family:"'Indie Flower', cursive",            group:"Printed Handwriting" },
   { id:"architects",label:"Architects Daughter",   family:"'Architects Daughter', cursive",     group:"Printed Handwriting" },
   { id:"amatic",    label:"Amatic SC",             family:"'Amatic SC', cursive",               group:"Printed Handwriting" },
@@ -124,11 +117,11 @@ const FONTS = [
 const FONT_GROUPS = ["Elegant Cursive","Casual Cursive","Natural Handwriting","Printed Handwriting"];
 
 const INKS = [
-  { id:"blue",     label:"Blue",       color:"#1a3a6b" },
-  { id:"darkblue", label:"Dark Blue",  color:"#0a1a3d" },
-  { id:"black",    label:"Black",      color:"#1c1c1c" },
-  { id:"pencil",   label:"Pencil",     color:"#4a4a4a" },
-  { id:"red",      label:"Red",        color:"#8b1a1a" },
+  { id:"blue",     label:"Blue",      color:"#1a3a6b", colorLight:"#2a5aab" },
+  { id:"darkblue", label:"Dark Blue", color:"#0a1a3d", colorLight:"#1a3a7d" },
+  { id:"black",    label:"Black",     color:"#1c1c1c", colorLight:"#3c3c3c" },
+  { id:"pencil",   label:"Pencil",    color:"#4a4a4a", colorLight:"#7a7a7a" },
+  { id:"red",      label:"Red",       color:"#8b1a1a", colorLight:"#bb3a3a" },
 ];
 
 const PAPERS = [
@@ -153,10 +146,29 @@ const PH_A4 = 1123;
 const PH_LEGAL = 1400;
 
 /* ─────────────────────────────────────────
-   SEEDED RNG
+   FIX #9: FONT LOADING — Promise-based, not setTimeout hack
+   Uses document.fonts.load() to guarantee font is available before
+   any paginate/draw call. Falls back gracefully after 4s.
+───────────────────────────────────────── */
+async function loadFontFamily(family) {
+  const testStr = "Hello World ABCDEFGabcdefg";
+  // Extract just the font-family name (strip CSS wrapper quotes/stack)
+  const match = family.match(/'([^']+)'/);
+  if (!match) return;
+  const name = match[1];
+  try {
+    await Promise.race([
+      document.fonts.load(`16px '${name}'`, testStr),
+      new Promise(res => setTimeout(res, 4000)), // 4s hard timeout
+    ]);
+  } catch (_) {}
+}
+
+/* ─────────────────────────────────────────
+   SEEDED RNG — deterministic per page/line so rerenders are stable
 ───────────────────────────────────────── */
 function mkRng(seed) {
-  let s = seed | 0;
+  let s = (seed | 0) || 1;
   return () => {
     s = Math.imul(s ^ (s >>> 15), s | 1);
     s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
@@ -165,50 +177,156 @@ function mkRng(seed) {
 }
 
 /* ─────────────────────────────────────────
-   LINE CLASSIFIER
-   Detects heading, bullet, numbered list,
-   center-aligned, or normal body text.
-   Preserves leading whitespace indent.
+   FIX #8: PAPER TEXTURE — Pixel-level grain + yellowing noise
+   Called once per drawPage; overlays semi-transparent grain pixels.
+───────────────────────────────────────── */
+function applyPaperTexture(ctx, W, H, rng) {
+  // Draw fibrous grain via many tiny semi-transparent pixels
+  // Two passes: coarse fiber + fine grain
+  const grainData = ctx.createImageData(W, H);
+  const d = grainData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const pixelRng = rng() ;
+    const v = pixelRng > 0.993
+      ? Math.floor(rng() * 60)       // occasional dark fiber speck
+      : pixelRng > 0.97
+      ? Math.floor(180 + rng() * 40) // mid-tone grain
+      : -1;                           // transparent — skip
+    if (v >= 0) {
+      // Warm yellowing: slightly push R up, G neutral, B down
+      d[i]   = Math.min(255, v + 18); // R
+      d[i+1] = Math.min(255, v + 8);  // G
+      d[i+2] = Math.max(0,   v - 12); // B
+      d[i+3] = Math.floor(12 + rng() * 22); // very low alpha
+    }
+  }
+  ctx.putImageData(grainData, 0, 0);
+
+  // Subtle vignette — paper edges slightly darker
+  const vg = ctx.createRadialGradient(W/2, H/2, H*0.25, W/2, H/2, H*0.75);
+  vg.addColorStop(0, "rgba(0,0,0,0)");
+  vg.addColorStop(1, "rgba(0,0,0,0.06)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* ─────────────────────────────────────────
+   FIX #2 + #4 + #6 + #7: CHARACTER-LEVEL RENDERER
+   Renders one structured line char-by-char with:
+   - per-char rotation jitter (not per-word)
+   - sinusoidal baseline
+   - ink pressure via per-char alpha + color lightening
+   - irregular inter-character spacing
+───────────────────────────────────────── */
+function renderLineChars(ctx, sl, baseY, startX, fontStr, dispSize, inkColor, inkColorLight, imperfect, rng) {
+  const text = sl.text || "";
+  if (!text.trim()) return;
+
+  ctx.font = fontStr;
+  const totalChars = text.length;
+
+  // FIX #5: cumulative margin drift — starts at 0, wanders each char
+  let cx = startX;
+  // Sinusoidal baseline params — different per line (from rng seeded per line)
+  // FIX #7: sine wave baseline, not linear drift
+  const sineAmp   = imperfect ? 1.2 + rng() * 2.2 : 0;   // ±1–3px vertical
+  const sinePeriod = imperfect ? 60 + rng() * 120 : 9999; // wave period in chars
+
+  // Ink color: parse into RGB for mid-stroke lightening
+  // We'll interpolate between inkColor (dark) and inkColorLight (lighter) per char
+  const parseHex = (hex) => {
+    const h = hex.replace("#","");
+    return [
+      parseInt(h.slice(0,2),16),
+      parseInt(h.slice(2,4),16),
+      parseInt(h.slice(4,6),16)
+    ];
+  };
+  const [r0,g0,b0] = parseHex(inkColor);
+  const [r1,g1,b1] = parseHex(inkColorLight);
+  const toHex = (r,g,b) => `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b.toString(16).padStart(2,"0")}`;
+
+  for (let ci = 0; ci < totalChars; ci++) {
+    const ch = text[ci];
+
+    // Per-char font measurement for spacing
+    ctx.font = fontStr;
+    const charW = ctx.measureText(ch).width;
+
+    if (ch === " ") {
+      // FIX #6: irregular word spacing — humans vary gaps
+      const spaceVar = imperfect ? 0.7 + rng() * 0.65 : 1.0;
+      cx += charW * spaceVar;
+      continue;
+    }
+
+    // FIX #7: sinusoidal baseline — y oscillates with a sine wave
+    const sineY = sineAmp * Math.sin((ci / sinePeriod) * Math.PI * 2);
+
+    // FIX #2: per-char rotation — tiny individual wobble, not per-word uniform tilt
+    // Base tilt: very subtle (±0.5°), plus per-char noise (±0.8°)
+    const baseTilt = imperfect ? (rng() - 0.5) * 0.016 : 0;  // ~±0.9°
+    const charRot  = imperfect ? baseTilt + (rng() - 0.5) * 0.026 : 0;
+
+    // FIX #6: inter-character spacing jitter (kerning variation)
+    const kernJitter = imperfect ? (rng() - 0.5) * (dispSize * 0.08) : 0;
+
+    // FIX #3+#4: ink pressure simulation
+    // Position within word determines pressure — start/end of stroke heavier
+    const wordPos  = ci / Math.max(totalChars - 1, 1); // 0 → 1
+    // Pressure curve: heavy at 0 and 1, lighter mid-stroke
+    const pressure = 0.5 + 0.5 * Math.pow(Math.cos(wordPos * Math.PI), 2);
+    const alpha    = imperfect
+      ? Math.min(1, 0.70 + pressure * 0.28 + (rng() - 0.5) * 0.08)
+      : 0.92;
+    // Interpolate ink color: darker at stroke start/end, slightly lighter mid
+    const t   = imperfect ? 1 - pressure : 0; // 0=dark, 1=light
+    const cr  = Math.round(r0 + (r1 - r0) * t * 0.4);
+    const cg  = Math.round(g0 + (g1 - g0) * t * 0.4);
+    const cb  = Math.round(b0 + (b1 - b0) * t * 0.4);
+    const charColor = toHex(cr, cg, cb);
+
+    // FIX #10: per-char vertical jitter (slight misalignment off baseline)
+    const vertJitter = imperfect ? (rng() - 0.5) * (dispSize * 0.09) : 0;
+
+    const drawX = cx + kernJitter;
+    const drawY = baseY + sineY + vertJitter;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = charColor;
+    ctx.font        = fontStr;
+    ctx.translate(drawX, drawY);
+    ctx.rotate(charRot);
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+
+    // Advance x — natural width plus kern jitter
+    cx += charW + kernJitter * 0.3;
+  }
+}
+
+/* ─────────────────────────────────────────
+   LINE CLASSIFIER — unchanged, works correctly
 ───────────────────────────────────────── */
 function classifyLine(raw) {
   if (raw === null || raw === undefined) return { type:"empty", text:"", indent:0 };
   if (raw.trim() === "") return { type:"empty", text:"", indent:0 };
-
-  // count leading spaces/tabs for indent
   const leadMatch = raw.match(/^(\s*)/);
   const leadWS = leadMatch ? leadMatch[1] : "";
-  const indent = leadWS.replace(/\t/g, "    ").length; // tabs → 4 spaces
+  const indent = leadWS.replace(/\t/g, "    ").length;
   const trimmed = raw.trim();
-
-  // centered heading: line wrapped with ==..== or all caps short line
-  if (/^={2,}(.+)={2,}$/.test(trimmed)) {
-    return { type:"center", text: trimmed.replace(/^={2,}|={2,}$/g, "").trim(), indent:0 };
-  }
-  // heading markers: #, ##, ### or line ending with :
-  if (/^#{1,3}\s+/.test(trimmed)) {
-    return { type:"heading", text: trimmed.replace(/^#{1,3}\s+/, ""), indent };
-  }
-  // Markdown-style bold heading: **text**
-  if (/^\*\*(.+)\*\*$/.test(trimmed)) {
-    return { type:"heading", text: trimmed.replace(/^\*\*|\*\*$/g,""), indent };
-  }
-  // bullet: starts with -, *, •, –, —
-  if (/^[-*•–—]\s+/.test(trimmed)) {
-    return { type:"bullet", text: trimmed, indent: indent + 20 };
-  }
-  // numbered list: 1. 2) etc
-  if (/^\d+[.)]\s+/.test(trimmed)) {
-    return { type:"numbered", text: trimmed, indent: indent + 20 };
-  }
-  // alpha list: a. b) etc
-  if (/^[a-zA-Z][.)]\s+/.test(trimmed)) {
-    return { type:"numbered", text: trimmed, indent: indent + 20 };
-  }
+  if (/^={2,}(.+)={2,}$/.test(trimmed)) return { type:"center", text: trimmed.replace(/^={2,}|={2,}$/g,"").trim(), indent:0 };
+  if (/^#{1,3}\s+/.test(trimmed))        return { type:"heading", text: trimmed.replace(/^#{1,3}\s+/,""), indent };
+  if (/^\*\*(.+)\*\*$/.test(trimmed))   return { type:"heading", text: trimmed.replace(/^\*\*|\*\*$/g,""), indent };
+  if (/^[-*•–—]\s+/.test(trimmed))      return { type:"bullet",  text: trimmed, indent: indent + 20 };
+  if (/^\d+[.)]\s+/.test(trimmed))      return { type:"numbered",text: trimmed, indent: indent + 20 };
+  if (/^[a-zA-Z][.)]\s+/.test(trimmed)) return { type:"numbered",text: trimmed, indent: indent + 20 };
   return { type:"body", text: raw, indent: Math.max(indent * 6, 0) };
 }
 
 /* ─────────────────────────────────────────
-   PAGINATOR — lineOverrides: {lineIdx: {size,bold,italic,align,indent}}
+   PAGINATOR
 ───────────────────────────────────────── */
 function paginate(text, paper, fontSize, fontFamily, lineOverrides = {}) {
   const H = paper.tall ? PH_LEGAL : PH_A4;
@@ -241,7 +359,10 @@ function paginate(text, paper, fontSize, fontFamily, lineOverrides = {}) {
     words.forEach(word => {
       const test = cur ? cur + " " + word : word;
       if (measure(test, dispSize, bold, italic) <= availW) { cur = test; }
-      else { if (cur) structuredLines.push({ type:cl.type, text:cur, indent:indentPx, isHeading, isCentered, isRight, size:dispSize, bold, italic, rawIdx }); cur = word; }
+      else {
+        if (cur) structuredLines.push({ type:cl.type, text:cur, indent:indentPx, isHeading, isCentered, isRight, size:dispSize, bold, italic, rawIdx });
+        cur = word;
+      }
     });
     if (cur) structuredLines.push({ type:cl.type, text:cur, indent:indentPx, isHeading, isCentered, isRight, size:dispSize, bold, italic, rawIdx });
   });
@@ -251,9 +372,10 @@ function paginate(text, paper, fontSize, fontFamily, lineOverrides = {}) {
 }
 
 /* ─────────────────────────────────────────
-   CANVAS RENDERER
+   CANVAS RENDERER — full rewrite with all 10 fixes
 ───────────────────────────────────────── */
-function drawPage(lines, paper, fontFamily, inkColor, fontSize, pageNum, totalPages, imperfect) {
+function drawPage(lines, paper, fontFamily, ink, fontSize, pageNum, totalPages, imperfect) {
+  const { color: inkColor, colorLight: inkColorLight } = ink;
   const W = PW;
   const H = paper.tall ? PH_LEGAL : PH_A4;
   const { lineH, margin, leftMargin, hasMarginLine, isGrid, holePunch } = paper;
@@ -267,61 +389,88 @@ function drawPage(lines, paper, fontFamily, inkColor, fontSize, pageNum, totalPa
   const ctx = canvas.getContext("2d");
   ctx.scale(SCALE, SCALE);
 
-  /* ── paper background ── */
-  ctx.fillStyle = "#ffffff";
+  // ── FIX #8: Realistic paper background — warm cream with slight variation
+  // Base: warm off-white, not pure white
+  ctx.fillStyle = "#faf8f0";
   ctx.fillRect(0, 0, W, H);
-  const pg = ctx.createLinearGradient(0,0,W,H);
-  pg.addColorStop(0,"rgba(242,228,182,0.13)");
-  pg.addColorStop(1,"rgba(218,204,158,0.06)");
-  ctx.fillStyle = pg; ctx.fillRect(0,0,W,H);
 
-  /* ── ruled lines / grid ── */
+  // Warm gradient for slight uneven aging
+  const pg = ctx.createLinearGradient(0, 0, W, H);
+  pg.addColorStop(0,   "rgba(250,240,200,0.18)");
+  pg.addColorStop(0.4, "rgba(255,250,230,0.08)");
+  pg.addColorStop(1,   "rgba(230,220,180,0.14)");
+  ctx.fillStyle = pg;
+  ctx.fillRect(0, 0, W, H);
+
+  // FIX #8: pixel-level grain texture (deterministic via page-seeded rng)
+  const textureRng = mkRng(pageNum * 7919 + 12345);
+  applyPaperTexture(ctx, W, H, textureRng);
+
+  // ── Ruled lines / grid
   if (isGrid) {
-    ctx.strokeStyle = "rgba(135,180,215,0.42)"; ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(135,180,215,0.38)"; ctx.lineWidth = 0.5;
     for (let y = topPad; y < H-48; y += effLH) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
     for (let x = leftMargin; x < W-28; x += effLH) { ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
   } else if (lineH > 0) {
-    ctx.strokeStyle = "rgba(105,160,210,0.42)"; ctx.lineWidth = 0.6;
+    ctx.strokeStyle = "rgba(105,160,210,0.35)"; ctx.lineWidth = 0.55;
     for (let y = topPad; y < H-48; y += effLH) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
   }
   if (hasMarginLine) {
-    ctx.strokeStyle = "rgba(215,90,90,0.38)"; ctx.lineWidth = 0.8;
+    ctx.strokeStyle = "rgba(215,90,90,0.32)"; ctx.lineWidth = 0.75;
     ctx.beginPath();ctx.moveTo(leftMargin,0);ctx.lineTo(leftMargin,H);ctx.stroke();
   }
   if (holePunch) {
     [120,560,1000].forEach(py => {
       ctx.beginPath();ctx.arc(28,py,11,0,Math.PI*2);
-      ctx.fillStyle="#fdfcf5";ctx.fill();
+      ctx.fillStyle="#f5f3e8";ctx.fill();
       ctx.strokeStyle="#ccc";ctx.lineWidth=0.8;ctx.stroke();
     });
   }
 
-  /* ── text ── */
+  // ── Text rendering — character-level
   ctx.textBaseline = "alphabetic";
-  const rng = mkRng(pageNum * 9973 + lines.length * 37);
+
+  // FIX #5: cumulative margin drift state — persists across lines on the page
+  // Real writers slowly drift their starting margin over the page
+  let marginDriftAccum = 0;
+
+  // FIX #10: per-line vertical jitter state
+  // Tracks cumulative vertical position — lines aren't perfectly on ruled lines
   let curY = topPad;
 
   lines.forEach((sl, li) => {
     if (!sl) return;
+
     const isHeading  = sl.isHeading;
     const isCentered = sl.isCentered;
     const isRight    = sl.isRight;
-    // use per-line override size if present, else fallback
     const dispSize   = sl.size || (isHeading ? Math.round(fontSize * 1.18) : fontSize);
     const bold       = sl.bold  !== undefined ? sl.bold   : isHeading;
     const italic     = sl.italic !== undefined ? sl.italic : false;
-    const lineStep   = dispSize > fontSize * 1.05 ? Math.round(effLH * 1.3) : effLH;
 
-    const baseY = curY;
+    // FIX #10: per-line vertical jitter — writer doesn't hit every line perfectly
+    // Headings: minimal jitter. Body: ±2–4px random offset
+    const lineVertJitter = imperfect
+      ? (isHeading ? (textureRng() - 0.5) * 1.5 : (textureRng() - 0.5) * 3.5)
+      : 0;
+    const lineStep = dispSize > fontSize * 1.05 ? Math.round(effLH * 1.35) : effLH;
+    const baseY    = curY + lineVertJitter;
     curY += lineStep;
+
     if (baseY > H - 48) return;
     if (sl.type === "empty") return;
 
-    const words    = sl.text.split(/(\s+)/);
-    const indentPx = sl.indent || 0;
-    const fontStr  = `${italic?"italic ":""}${bold?"bold ":""}${dispSize}px ${fontFamily}`;
+    const indentPx  = sl.indent || 0;
+    const fontStr   = `${italic?"italic ":""}${bold?"bold ":""}${dispSize}px ${fontFamily}`;
 
-    /* centering / right-align */
+    // FIX #5: margin drift — cumulative, small per-line random walk
+    // Each line drifts slightly left or right from the previous line's start
+    if (imperfect && !isCentered && !isRight) {
+      marginDriftAccum += (textureRng() - 0.5) * 2.8; // random walk ±1.4px per line
+      marginDriftAccum  = Math.max(-9, Math.min(9, marginDriftAccum)); // clamp total drift
+    }
+
+    // Compute line start X
     ctx.font = fontStr;
     let startX;
     if (isCentered) {
@@ -331,82 +480,65 @@ function drawPage(lines, paper, fontFamily, inkColor, fontSize, pageNum, totalPa
       const fullW = ctx.measureText(sl.text.replace(/\s+/g," ")).width;
       startX = PW - 44 - fullW;
     } else {
-      startX = leftMargin + 14 + indentPx;
+      startX = leftMargin + 14 + indentPx + (imperfect ? marginDriftAccum : 0);
     }
 
-    const marginDrift  = imperfect ? (rng() - 0.5) * (isCentered || isHeading ? 2 : 7) : 0;
-    // Always slope DOWN (positive = lower on right side)
-    // Range: 0.008 to 0.028 radians (~0.5° to ~1.6°) — always positive
-    // Headings slope less. Each line gets a slightly different slope.
-    const lineTilt = imperfect
-      ? (isHeading || isCentered
-          ? 0.004 + rng() * 0.008          // headings: very slight 0.2°–0.7°
-          : 0.010 + rng() * 0.020)         // body: 0.6°–1.7° downward
-      : 0.008;                              // imperfect off: uniform gentle slope
-    let cumulY = 0;
-    const yWanderStep  = imperfect ? (rng() - 0.5) * 0.55 : 0;
-    let x = startX + marginDrift;
+    // Create a line-specific rng seeded by page + line index for stable rerenders
+    const lineRng = mkRng(pageNum * 9973 + li * 997 + (sl.rawIdx || 0) * 37);
 
-    words.forEach(tok => {
-      if (!tok) return;
-      if (/^\s+$/.test(tok)) {
-        ctx.font = fontStr;
-        const sw = ctx.measureText(" ").width;
-        x += sw * (imperfect ? 0.84 + rng() * 0.32 : 1);
-        cumulY += yWanderStep * 0.3;
-        return;
-      }
-      // word micro-rotation biased slightly forward (downward-right)
-      const wordRot = imperfect ? lineTilt * 0.4 + (rng()-0.5)*0.028 : lineTilt * 0.3;
-      const wordDy  = imperfect ? (rng()-0.5)*2.1   : 0;
-      const op      = imperfect ? 0.74+rng()*0.26   : 1;
-      const tiltY   = lineTilt * (x - startX);
-      const totalY  = baseY + tiltY + cumulY + wordDy;
-
-      ctx.save();
-      ctx.globalAlpha = op;
-      ctx.translate(x, totalY);
-      ctx.rotate(wordRot + lineTilt);
-      ctx.fillStyle = inkColor;
-      ctx.font = fontStr;
-      ctx.fillText(tok, 0, 0);
-      const tw = ctx.measureText(tok).width;
-      ctx.restore();
-      x += tw;
-      cumulY += yWanderStep;
-    });
+    // Render this line character by character
+    renderLineChars(
+      ctx, sl, baseY, startX,
+      fontStr, dispSize,
+      inkColor, inkColorLight,
+      imperfect, lineRng
+    );
   });
 
-  /* ── page number ── */
-  ctx.globalAlpha = 0.22;
-  ctx.fillStyle = inkColor;
-  ctx.font = `12px ${fontFamily}`;
-  ctx.textAlign = "center";
-  ctx.fillText(`${pageNum} / ${totalPages}`, W/2, H-18);
+  // ── page number
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle   = inkColor;
+  ctx.font        = `12px ${fontFamily}`;
+  ctx.textAlign   = "center";
+  ctx.fillText(`${pageNum} / ${totalPages}`, W/2, H - 18);
+  ctx.textAlign   = "left"; // reset
+
+  // ── FIX #1: REMOVE applyScannerFilter entirely.
+  // Instead: subtle aged-scan overlay — slight contrast boost without destroying color
+  // This simulates a light scan without grayscaling the ink.
+  applyAgedScanOverlay(ctx, W, H, textureRng);
+
   return canvas;
 }
 
-function applyScannerFilter(canvas) {
-  const ctx = canvas.getContext("2d");
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
+/* ─────────────────────────────────────────
+   FIX #1: REPLACE applyScannerFilter
+   Subtle aged-scan effect: slight contrast + warmth, NO grayscale
+   Preserves ink color while adding realism.
+───────────────────────────────────────── */
+function applyAgedScanOverlay(ctx, W, H, rng) {
+  // Only process every 3rd pixel for performance (still looks fine at 2x scale)
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    // Skip very dark pixels (ink) — only process paper (light pixels)
+    const lum = 0.3*r + 0.59*g + 0.11*b;
+    if (lum < 100) continue; // leave dark ink pixels untouched
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
+    // Warm the paper: push light pixels slightly amber
+    d[i]   = Math.min(255, r + 4);   // slight R boost
+    d[i+1] = Math.min(255, g + 1);   // tiny G boost
+    d[i+2] = Math.max(0,   b - 6);   // reduce B for warmth
 
-    // Convert to grayscale
-    const gray = 0.3 * r + 0.59 * g + 0.11 * b;
-
-    // THRESHOLD (this is the magic)
-    const value = gray > 180 ? 255 : gray * 0.4;
-
-    data[i] = data[i + 1] = data[i + 2] = value;
+    // Micro-contrast: push very light pixels lighter, near-ink pixels darker
+    if (lum > 230) {
+      d[i] = d[i+1] = d[i+2] = Math.min(255, lum + 3); // brighten near-whites
+    }
   }
-
   ctx.putImageData(imgData, 0, 0);
 }
+
 /* ─────────────────────────────────────────
    SHEET COMPONENT
 ───────────────────────────────────────── */
@@ -415,17 +547,18 @@ function Sheet({ lines, paper, font, ink, fontSize, pageNum, totalPages, imperfe
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
-    const canvas = drawPage(lines, paper, font.family, ink.color, fontSize, pageNum, totalPages, imperfect);
-    applyScannerFilter(canvas);
+    // Draw with ink object (has color + colorLight)
+    const canvas = drawPage(lines, paper, font.family, ink, fontSize, pageNum, totalPages, imperfect);
     canvas.style.width  = "100%";
     canvas.style.height = "auto";
     canvas.style.display = "block";
     while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
     wrap.appendChild(canvas);
   }, [lines, paper, font, ink, fontSize, pageNum, totalPages, imperfect]);
+
   return (
     <div className="rr-sheet">
-      <div ref={wrapRef} style={{ width:PW, maxWidth:"100%", background:"#fdfcf5", lineHeight:0 }}/>
+      <div ref={wrapRef} style={{ width:PW, maxWidth:"100%", background:"#faf8f0", lineHeight:0 }}/>
     </div>
   );
 }
@@ -445,7 +578,6 @@ const CSS = `
 *{box-sizing:border-box;margin:0;padding:0;}
 .rr{min-height:100vh;background:var(--bg);color:var(--white);font-family:var(--body);display:flex;flex-direction:column;overflow-x:hidden;}
 
-/* NAV */
 .rr-nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:14px 36px;background:rgba(5,5,7,0.93);backdrop-filter:blur(20px);border-bottom:1px solid var(--bdr);}
 .rr-brand{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .rr-bos{font-family:var(--display);font-size:15px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--white);}
@@ -455,74 +587,29 @@ const CSS = `
 .rr-btit em{font-style:normal;color:var(--lime);}
 .rr-badge{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#050507;background:var(--lime);padding:3px 10px;border-radius:2px;}
 
-/* LAYOUT: stacked — input on top, output below */
 .rr-body{display:flex;flex-direction:column;flex:1;padding-top:57px;}
 
-/* INPUT ZONE — full width top area */
-.rr-input-zone{
-  background:var(--surf);
-  border-bottom:1px solid var(--bdr);
-  padding:20px 32px 0;
-  flex-shrink:0;
-}
-.rr-input-top{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:12px;
-}
-.rr-input-title{
-  font-family:var(--display);font-size:14px;font-weight:700;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--white);
-}
+.rr-input-zone{background:var(--surf);border-bottom:1px solid var(--bdr);padding:20px 32px 0;flex-shrink:0;}
+.rr-input-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.rr-input-title{font-family:var(--display);font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--white);}
 
-/* WARNING BANNER */
-.rr-warn{
-  display:flex;align-items:flex-start;gap:10px;
-  background:rgba(245,166,35,0.08);
-  border:1px solid rgba(245,166,35,0.22);
-  border-radius:5px;padding:10px 14px;margin-bottom:12px;
-}
+.rr-warn{display:flex;align-items:flex-start;gap:10px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.22);border-radius:5px;padding:10px 14px;margin-bottom:12px;}
 .rr-warn-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
 .rr-warn-text{font-size:11px;line-height:1.65;color:rgba(245,166,35,0.9);}
 .rr-warn-text strong{font-weight:600;display:block;margin-bottom:2px;}
 
-/* TEXTAREA — large, full width */
-.rr-ta{
-  width:100%;height:200px;
-  background:var(--surf2);border:1px solid var(--bdr);
-  border-top-left-radius:6px;border-top-right-radius:6px;
-  border-bottom:none;
-  padding:14px 16px;
-  color:var(--white);font-family:'Courier New',monospace;
-  font-size:13px;line-height:1.7;
-  resize:vertical;transition:border-color .2s;
-  tab-size:4;
-}
+.rr-ta{width:100%;height:200px;background:var(--surf2);border:1px solid var(--bdr);border-top-left-radius:6px;border-top-right-radius:6px;border-bottom:none;padding:14px 16px;color:var(--white);font-family:'Courier New',monospace;font-size:13px;line-height:1.7;resize:vertical;transition:border-color .2s;tab-size:4;}
 .rr-ta:focus{outline:none;border-color:rgba(198,241,53,.3);}
 .rr-ta::placeholder{color:var(--grey2);font-family:var(--body);}
 
-/* TEXTAREA STATUS BAR */
-.rr-ta-bar{
-  background:var(--surf3);border:1px solid var(--bdr);
-  border-top:1px solid rgba(255,255,255,0.04);
-  border-bottom-left-radius:6px;border-bottom-right-radius:6px;
-  padding:6px 14px;
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:16px;
-}
+.rr-ta-bar{background:var(--surf3);border:1px solid var(--bdr);border-top:1px solid rgba(255,255,255,0.04);border-bottom-left-radius:6px;border-bottom-right-radius:6px;padding:6px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .rr-ta-stats{font-size:10px;color:var(--grey2);letter-spacing:.04em;}
 .rr-ta-hint{font-size:10px;color:var(--grey2);letter-spacing:.04em;}
 
-/* CONTROLS BAR */
-.rr-controls{
-  display:flex;align-items:flex-start;gap:24px;
-  padding:18px 0 20px;
-  flex-wrap:wrap;
-  border-top:1px solid var(--bdr);
-}
+.rr-controls{display:flex;align-items:flex-start;gap:24px;padding:18px 0 20px;flex-wrap:wrap;border-top:1px solid var(--bdr);}
 .rr-ctrl-group{display:flex;flex-direction:column;gap:8px;}
 .rr-clbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--grey2);}
 
-/* FONT DROPDOWN — bigger */
 .rr-ddw{position:relative;min-width:210px;}
 .rr-ddt{width:100%;padding:11px 14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border-color .2s;}
 .rr-ddt:hover,.rr-ddt.open{border-color:rgba(198,241,53,.3);}
@@ -543,7 +630,6 @@ const CSS = `
 .rr-ddos{font-size:18px;color:var(--lime);line-height:1;flex-shrink:0;}
 .rr-ddock{color:var(--lime);font-size:11px;}
 
-/* INK SWATCHES — bigger */
 .rr-inkr{display:flex;gap:6px;flex-wrap:wrap;}
 .rr-inkb{padding:9px 13px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .2s;white-space:nowrap;}
 .rr-inkb:hover{border-color:var(--bdr2);}
@@ -552,7 +638,6 @@ const CSS = `
 .rr-inkl{font-size:11px;font-weight:500;color:var(--grey);}
 .rr-inkb.on .rr-inkl{color:var(--lime);}
 
-/* PAPER BUTTONS — bigger */
 .rr-papg{display:flex;gap:6px;flex-wrap:wrap;}
 .rr-papb{padding:9px 13px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;white-space:nowrap;}
 .rr-papb:hover{border-color:var(--bdr2);}
@@ -560,13 +645,11 @@ const CSS = `
 .rr-papn{font-size:11px;font-weight:500;color:var(--grey);}
 .rr-papb.on .rr-papn{color:var(--lime);}
 
-/* SIZE — bigger */
 .rr-szr{display:flex;gap:5px;}
 .rr-szb{padding:9px 14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;font-family:var(--body);font-size:12px;font-weight:600;color:var(--grey);letter-spacing:.06em;transition:all .2s;}
 .rr-szb:hover{color:var(--white);}
 .rr-szb.on{border-color:var(--lime);color:var(--lime);background:rgba(198,241,53,.07);}
 
-/* TOGGLE — bigger */
 .rr-tog{display:flex;align-items:center;gap:9px;padding:9px 14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;transition:all .2s;}
 .rr-tog:hover{border-color:var(--bdr2);}
 .rr-tog.on{border-color:rgba(198,241,53,.28);background:rgba(198,241,53,.05);}
@@ -575,91 +658,38 @@ const CSS = `
 .rr-togtr{width:32px;height:18px;border-radius:9px;position:relative;flex-shrink:0;transition:background .2s;}
 .rr-togth{position:absolute;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;}
 
-/* DOWNLOAD BUTTON — bigger */
 .rr-dlb{padding:10px 22px;background:transparent;border:1px solid var(--bdr2);border-radius:6px;font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--grey);cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:7px;}
 .rr-dlb:hover{color:var(--white);border-color:rgba(255,255,255,.28);}
 .rr-dlb:disabled{opacity:.3;cursor:not-allowed;}
 
-/* ── RICH TEXT EDITOR ── */
-.rr-editor{
-  background:var(--surf);
-  border-top:2px solid rgba(198,241,53,0.15);
-  flex-shrink:0;
-}
-.rr-editor-tabs{
-  display:flex;
-  border-bottom:1px solid var(--bdr);
-  padding:0 32px;
-  gap:4px;
-}
-.rr-tab{
-  padding:10px 18px;font-family:var(--body);font-size:11px;
-  font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--grey);background:transparent;border:none;
-  border-bottom:2px solid transparent;margin-bottom:-1px;
-  cursor:pointer;transition:color .2s,border-color .2s;
-}
+.rr-editor{background:var(--surf);border-top:2px solid rgba(198,241,53,0.15);flex-shrink:0;}
+.rr-editor-tabs{display:flex;border-bottom:1px solid var(--bdr);padding:0 32px;gap:4px;}
+.rr-tab{padding:10px 18px;font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--grey);background:transparent;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;transition:color .2s,border-color .2s;}
 .rr-tab:hover{color:var(--white);}
 .rr-tab.on{color:var(--lime);border-bottom-color:var(--lime);}
 .rr-tab-hint{margin-left:auto;font-size:10px;color:var(--grey2);display:flex;align-items:center;padding:0 0 0 16px;}
 
 .rr-editor-body{padding:14px 32px 18px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;}
 
-/* LINE EDITOR TABLE */
 .rr-line-table{width:100%;border-collapse:collapse;}
 .rr-line-tr{border-bottom:1px solid var(--bdr);}
 .rr-line-tr:last-child{border-bottom:none;}
 .rr-line-tr:hover .rr-line-num{color:var(--lime);}
-.rr-line-num{
-  width:28px;text-align:right;padding:7px 10px 7px 0;
-  font-size:10px;font-weight:600;color:var(--grey2);
-  font-family:'Courier New',monospace;vertical-align:middle;
-  user-select:none;
-}
-.rr-line-text{
-  padding:6px 12px;font-family:'Courier New',monospace;
-  font-size:12px;color:var(--white);vertical-align:middle;
-  max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.rr-line-controls{
-  padding:5px 0 5px 8px;
-  display:flex;align-items:center;gap:5px;
-  white-space:nowrap;
-}
-/* Per-line size picker */
-.rr-lsz{
-  padding:3px 7px;background:var(--surf2);border:1px solid var(--bdr);
-  border-radius:4px;font-family:var(--body);font-size:10px;font-weight:600;
-  color:var(--grey);cursor:pointer;transition:all .15s;
-}
+.rr-line-num{width:28px;text-align:right;padding:7px 10px 7px 0;font-size:10px;font-weight:600;color:var(--grey2);font-family:'Courier New',monospace;vertical-align:middle;user-select:none;}
+.rr-line-text{padding:6px 12px;font-family:'Courier New',monospace;font-size:12px;color:var(--white);vertical-align:middle;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rr-line-controls{padding:5px 0 5px 8px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.rr-lsz{padding:3px 7px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;font-family:var(--body);font-size:10px;font-weight:600;color:var(--grey);cursor:pointer;transition:all .15s;}
 .rr-lsz:hover{color:var(--white);border-color:var(--bdr2);}
 .rr-lsz.on{border-color:var(--lime);color:var(--lime);background:rgba(198,241,53,.06);}
-/* Per-line style buttons */
-.rr-lsty{
-  width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);
-  border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:var(--grey);transition:all .15s;
-  font-family:serif;
-}
+.rr-lsty{width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--grey);transition:all .15s;font-family:serif;}
 .rr-lsty:hover{color:var(--white);border-color:var(--bdr2);}
 .rr-lsty.on{border-color:var(--lime);color:var(--lime);background:rgba(198,241,53,.06);}
-/* Alignment */
-.rr-lalign{
-  width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);
-  border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-size:11px;color:var(--grey);transition:all .15s;
-}
+.rr-lalign{width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--grey);transition:all .15s;}
 .rr-lalign:hover{color:var(--white);border-color:var(--bdr2);}
 .rr-lalign.on{border-color:var(--lime);color:var(--lime);background:rgba(198,241,53,.06);}
-/* Indent */
-.rr-lindent{
-  width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);
-  border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-size:13px;color:var(--grey);transition:all .15s;
-}
+.rr-lindent{width:26px;height:26px;background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--grey);transition:all .15s;}
 .rr-lindent:hover{color:var(--white);border-color:var(--bdr2);}
 
-/* PREVIEW AREA */
 .rr-prev{flex:1;background:#0e0e15;display:flex;flex-direction:column;align-items:center;padding:32px 24px 52px;overflow-y:auto;gap:24px;}
 .rr-prevhdr{width:100%;max-width:860px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .rr-prevtit{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);}
@@ -670,95 +700,32 @@ const CSS = `
 .rr-empty-txt{font-size:14px;font-weight:300;color:var(--grey);max-width:280px;line-height:1.7;}
 .rr-empty-hint{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey2);}
 
-/* INPUT ZONE */
-.rr-input-zone{
-  background:var(--surf);
-  border-bottom:1px solid var(--bdr);
-  flex-shrink:0;
-}
-.rr-input-top{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:12px;
-}
-.rr-input-title{
-  font-family:var(--display);font-size:14px;font-weight:700;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--white);
-}
-
-/* WARNING BANNER */
-.rr-warn{
-  display:flex;align-items:flex-start;gap:10px;
-  background:rgba(245,166,35,0.07);
-  border:1px solid rgba(245,166,35,0.2);
-  border-radius:5px;padding:10px 14px;margin-bottom:10px;
-}
-.rr-warn-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
-.rr-warn-text{font-size:11px;line-height:1.65;color:rgba(245,166,35,0.85);}
-.rr-warn-text strong{font-weight:600;display:block;margin-bottom:2px;}
-
-/* TEXTAREA */
-.rr-ta{
-  width:100%;height:200px;
-  background:var(--surf2);border:1px solid var(--bdr);
-  border-top-left-radius:6px;border-top-right-radius:6px;
-  border-bottom:none;
-  padding:14px 16px;
-  color:var(--white);font-family:'Courier New',monospace;
-  font-size:13px;line-height:1.7;
-  resize:vertical;transition:border-color .2s;
-  tab-size:4;
-}
-.rr-ta:focus{outline:none;border-color:rgba(198,241,53,.3);}
-.rr-ta::placeholder{color:var(--grey2);font-family:var(--body);}
-
-/* STATUS BAR */
-.rr-ta-bar{
-  background:var(--surf3);border:1px solid var(--bdr);
-  border-top:1px solid rgba(255,255,255,0.04);
-  border-bottom-left-radius:6px;border-bottom-right-radius:6px;
-  padding:6px 14px;
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:0;
-}
-.rr-ta-stats{font-size:10px;color:var(--grey2);letter-spacing:.04em;}
-.rr-ta-hint{font-size:10px;color:var(--grey2);letter-spacing:.04em;}
-
-/* SYNTAX GUIDE */
-.rr-guide{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;}
-.rr-guide-item{font-size:10px;color:var(--grey2);display:flex;align-items:center;gap:5px;}
-.rr-guide-code{font-family:'Courier New',monospace;font-size:10px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px;color:var(--grey);}
-
-@media(max-width:900px){
-  .rr-controls{gap:12px;}
-  .rr-ddw{min-width:160px;}
-}
-@media(max-width:600px){
-  .rr-input-zone{padding:16px 16px 0;}
-  .rr-prev{padding:16px 8px 40px;}
-}
+@media(max-width:900px){.rr-controls{gap:12px;}.rr-ddw{min-width:160px;}}
+@media(max-width:600px){.rr-input-zone{padding:16px 16px 0;}.rr-prev{padding:16px 8px 40px;}}
 `;
 
 /* ─────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────── */
 export default function Riter() {
-  const navigate   = useNavigate();
-  const [text,     setText]     = useState("");
-  const [font,     setFont]     = useState(FONTS[0]);
-  const [fontOpen, setFontOpen] = useState(false);
-  const [ink,      setInk]      = useState(INKS[0]);
-  const [paper,    setPaper]    = useState(PAPERS[0]);
-  const [size,     setSize]     = useState(SIZES[2]);
-  const [imper,    setImper]    = useState(true);
-  const [pages,    setPages]    = useState([]);
-  const [ready,    setReady]    = useState(false);
-  const [edTab,    setEdTab]    = useState("input"); // "input" | "edit"
-  // lineOverrides: { [lineIndex]: { size, bold, italic, align, indent } }
-  const [lineOv,   setLineOv]   = useState({});
-  const ddRef  = useRef(null);
-  const taRef  = useRef(null);
+  const navigate    = useNavigate();
+  const [text,      setText]     = useState("");
+  const [font,      setFont]     = useState(FONTS[0]);
+  const [fontOpen,  setFontOpen] = useState(false);
+  const [ink,       setInk]      = useState(INKS[0]);
+  const [paper,     setPaper]    = useState(PAPERS[0]);
+  const [size,      setSize]     = useState(SIZES[2]);
+  const [imper,     setImper]    = useState(true);
+  const [pages,     setPages]    = useState([]);
+  // FIX #9: two-stage ready — cssReady → fontsReady
+  const [cssReady,  setCssReady] = useState(false);
+  const [fontReady, setFontReady]= useState(false);
+  const [edTab,     setEdTab]    = useState("input");
+  const [lineOv,    setLineOv]   = useState({});
+  const ddRef = useRef(null);
+  const taRef = useRef(null);
 
-  /* inject CSS + load fonts */
+  /* inject CSS + load all fonts */
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = CSS;
@@ -766,13 +733,22 @@ export default function Riter() {
     const link = document.createElement("link");
     link.rel  = "stylesheet";
     link.href = `https://fonts.googleapis.com/css2?family=${FONT_LINK}&display=swap`;
-    link.onload = () => setTimeout(() => setReady(true), 700);
+    link.onload = () => setCssReady(true);
+    link.onerror = () => setCssReady(true); // continue even on error
     document.head.appendChild(link);
     return () => {
       document.head.removeChild(style);
       try { document.head.removeChild(link); } catch(_){}
     };
   }, []);
+
+  // FIX #9: once CSS is loaded, use document.fonts.load() to guarantee the
+  // currently selected font is rendered before first paginate call.
+  useEffect(() => {
+    if (!cssReady) return;
+    setFontReady(false);
+    loadFontFamily(font.family).then(() => setFontReady(true));
+  }, [cssReady, font]);
 
   /* close dropdown outside */
   useEffect(() => {
@@ -781,13 +757,12 @@ export default function Riter() {
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  /* live repaginate on every change */
+  /* live repaginate — only fires when font is confirmed ready */
   useEffect(() => {
-    if (!ready || !text.trim()) { setPages([]); return; }
+    if (!fontReady || !text.trim()) { setPages([]); return; }
     setPages(paginate(text, paper, size.size, font.family, lineOv));
-  }, [text, font, ink, paper, size, imper, ready, lineOv]);
+  }, [text, font, ink, paper, size, imper, fontReady, lineOv]);
 
-  /* unified text setter — handles all input sources */
   const handleText = useCallback((val) => setText(val), []);
 
   /* PDF export */
@@ -803,15 +778,17 @@ export default function Riter() {
     const W=PW,H=paper.tall?PH_LEGAL:PH_A4,mm=0.264583;
     const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:[W*mm,H*mm]});
     pages.forEach((ln,i)=>{
-      const c=drawPage(ln,paper,font.family,ink.color,size.size,i+1,pages.length,imper);
+      // Pass full ink object to drawPage
+      const c=drawPage(ln,paper,font.family,ink,size.size,i+1,pages.length,imper);
       if(i>0)pdf.addPage();
-      pdf.addImage(c.toDataURL("image/jpeg",0.93),"JPEG",0,0,W*mm,H*mm);
+      pdf.addImage(c.toDataURL("image/png"),"PNG",0,0,W*mm,H*mm);
     });
     pdf.save("riter.pdf");
   },[pages,paper,font,ink,size,imper]);
 
-  const wc  = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const lc  = text ? text.split("\n").length : 0;
+  const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const lc = text ? text.split("\n").length : 0;
+  const ready = fontReady;
 
   return (
     <div className="rr">
@@ -825,137 +802,121 @@ export default function Riter() {
       </nav>
 
       <div className="rr-body">
-
         {/* ── INPUT ZONE ── */}
         <div className="rr-input-zone">
-
-          {/* TABS */}
           <div className="rr-editor-tabs">
             <button className={`rr-tab${edTab==="input"?" on":""}`} onClick={()=>setEdTab("input")}>✍ Input</button>
             <button className={`rr-tab${edTab==="edit"?" on":""}`} onClick={()=>setEdTab("edit")}>
               ✦ Line Editor {Object.keys(lineOv).length > 0 && <span style={{marginLeft:5,color:"var(--lime)",fontSize:10}}>({Object.keys(lineOv).length} edited)</span>}
             </button>
             {Object.keys(lineOv).length > 0 && (
-              <button className="rr-tab" style={{color:"var(--red)"}}
-                onClick={()=>setLineOv({})}>✕ Reset edits</button>
+              <button className="rr-tab" style={{color:"var(--red)"}} onClick={()=>setLineOv({})}>✕ Reset edits</button>
             )}
             <span className="rr-tab-hint">
-              <span style={{fontSize:10,color:"var(--grey2)"}}>⚠ Space &amp; structure sensitive — paste from anywhere</span>
+              <span style={{fontSize:10,color:"var(--grey2)"}}>⚠ Space &amp; structure sensitive</span>
             </span>
           </div>
 
           <div style={{padding:"16px 32px 0"}}>
-
-          {/* TAB: INPUT */}
-          {edTab === "input" && (<>
-            <div className="rr-warn" style={{marginBottom:10}}>
-              <span className="rr-warn-icon">⚠</span>
-              <div className="rr-warn-text">
-                <strong>Space & Structure Sensitive</strong>
-                Every space, indent, and blank line is preserved exactly. Use <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>## Heading</code>, <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>- bullet</code>, <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>1. numbered</code>. Blank line = paragraph break. Switch to <strong>Line Editor</strong> tab to resize/style individual lines.
-              </div>
-            </div>
-            <textarea
-              ref={taRef}
-              className="rr-ta"
-              placeholder={`Type or paste your text...\n\nExamples:\n## Assignment Title\n\nThis is a paragraph.\n\n- Bullet one\n- Bullet two\n\n1. Step one\n2. Step two`}
-              value={text}
-              onChange={e  => handleText(e.target.value)}
-              onInput={e   => handleText(e.target.value)}
-              onPaste={e   => { setTimeout(() => handleText(e.target.value), 0); }}
-              onDrop={e    => { e.preventDefault(); const d=e.dataTransfer.getData("text"); handleText(text + d); }}
-              spellCheck={false}
-            />
-          </>)}
-
-          {/* TAB: LINE EDITOR */}
-          {edTab === "edit" && (
-            <div style={{maxHeight:240,overflowY:"auto",marginBottom:0}}>
-              {!text.trim() ? (
-                <div style={{padding:"24px 0",textAlign:"center",color:"var(--grey2)",fontSize:13}}>
-                  Add some text in the Input tab first.
+            {edTab === "input" && (<>
+              <div className="rr-warn" style={{marginBottom:10}}>
+                <span className="rr-warn-icon">⚠</span>
+                <div className="rr-warn-text">
+                  <strong>Space & Structure Sensitive</strong>
+                  Every space, indent, and blank line is preserved exactly. Use{" "}
+                  <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>## Heading</code>,{" "}
+                  <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>- bullet</code>,{" "}
+                  <code style={{fontFamily:"monospace",background:"rgba(255,255,255,.06)",padding:"0 4px",borderRadius:3}}>1. numbered</code>.
+                  Blank line = paragraph break.
                 </div>
-              ) : (
-                <table className="rr-line-table">
-                  <tbody>
-                    {text.split("\n").map((line, idx) => {
-                      const ov = lineOv[idx] || {};
-                      const setOv = (key, val) => setLineOv(prev => {
-                        const next = { ...prev };
-                        if (!next[idx]) next[idx] = {};
-                        if (val === null || val === undefined) { delete next[idx][key]; }
-                        else { next[idx][key] = val; }
-                        if (Object.keys(next[idx]).length === 0) delete next[idx];
-                        return { ...next };
-                      });
-                      const lineSizes = [
-                        {label:"XS",val:13},{label:"S",val:16},{label:"M",val:20},
-                        {label:"L",val:25},{label:"XL",val:31},{label:"XXL",val:38},
-                      ];
-                      return (
-                        <tr key={idx} className="rr-line-tr">
-                          <td className="rr-line-num">{idx+1}</td>
-                          <td className="rr-line-text" title={line}>{line || <span style={{color:"var(--grey2)",fontStyle:"italic"}}>empty line</span>}</td>
-                          <td className="rr-line-controls">
-                            {/* Size pills */}
-                            {lineSizes.map(s=>(
-                              <button key={s.label}
-                                className={`rr-lsz${ov.size===s.val?" on":""}`}
-                                onClick={()=> setOv("size", ov.size===s.val ? null : s.val)}
-                                title={`Set line ${idx+1} to size ${s.label}`}>
-                                {s.label}
-                              </button>
-                            ))}
-                            {/* Bold */}
-                            <button className={`rr-lsty${ov.bold===true?" on":""}`}
-                              onClick={()=> setOv("bold", ov.bold===true ? null : true)}
-                              title="Bold"><b>B</b></button>
-                            {/* Italic */}
-                            <button className={`rr-lsty${ov.italic===true?" on":""}`}
-                              onClick={()=> setOv("italic", ov.italic===true ? null : true)}
-                              title="Italic"><i>I</i></button>
-                            {/* Align */}
-                            <button className={`rr-lalign${ov.align==="left"||!ov.align?" on":""}`}
-                              onClick={()=> setOv("align","left")} title="Left align">≡</button>
-                            <button className={`rr-lalign${ov.align==="center"?" on":""}`}
-                              onClick={()=> setOv("align", ov.align==="center"?"left":"center")} title="Center">≐</button>
-                            <button className={`rr-lalign${ov.align==="right"?" on":""}`}
-                              onClick={()=> setOv("align", ov.align==="right"?"left":"right")} title="Right">⊐</button>
-                            {/* Indent */}
-                            <button className="rr-lindent"
-                              onClick={()=> setOv("indent", Math.max(0,(ov.indent||0)-1))}
-                              title="Decrease indent">←</button>
-                            <span style={{fontSize:10,color:"var(--grey2)",minWidth:14,textAlign:"center"}}>{ov.indent||0}</span>
-                            <button className="rr-lindent"
-                              onClick={()=> setOv("indent",(ov.indent||0)+1)}
-                              title="Increase indent">→</button>
-                            {/* Reset line */}
-                            {Object.keys(ov).length > 0 && (
-                              <button className="rr-lindent" style={{color:"var(--red)",fontSize:11}}
-                                onClick={()=> setLineOv(prev=>{ const n={...prev}; delete n[idx]; return n; })}
-                                title="Reset this line">✕</button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+              </div>
+              <textarea
+                ref={taRef}
+                className="rr-ta"
+                placeholder={`Type or paste your text...\n\nExamples:\n## Assignment Title\n\nThis is a paragraph.\n\n- Bullet one\n- Bullet two`}
+                value={text}
+                onChange={e  => handleText(e.target.value)}
+                onInput={e   => handleText(e.target.value)}
+                onPaste={e   => { setTimeout(() => handleText(e.target.value), 0); }}
+                onDrop={e    => { e.preventDefault(); const d=e.dataTransfer.getData("text"); handleText(text + d); }}
+                spellCheck={false}
+              />
+            </>)}
+
+            {edTab === "edit" && (
+              <div style={{maxHeight:240,overflowY:"auto",marginBottom:0}}>
+                {!text.trim() ? (
+                  <div style={{padding:"24px 0",textAlign:"center",color:"var(--grey2)",fontSize:13}}>
+                    Add some text in the Input tab first.
+                  </div>
+                ) : (
+                  <table className="rr-line-table">
+                    <tbody>
+                      {text.split("\n").map((line, idx) => {
+                        const ov = lineOv[idx] || {};
+                        const setOv = (key, val) => setLineOv(prev => {
+                          const next = { ...prev };
+                          if (!next[idx]) next[idx] = {};
+                          if (val === null || val === undefined) { delete next[idx][key]; }
+                          else { next[idx][key] = val; }
+                          if (Object.keys(next[idx]).length === 0) delete next[idx];
+                          return { ...next };
+                        });
+                        const lineSizes = [
+                          {label:"XS",val:13},{label:"S",val:16},{label:"M",val:20},
+                          {label:"L",val:25},{label:"XL",val:31},{label:"XXL",val:38},
+                        ];
+                        return (
+                          <tr key={idx} className="rr-line-tr">
+                            <td className="rr-line-num">{idx+1}</td>
+                            <td className="rr-line-text" title={line}>{line || <span style={{color:"var(--grey2)",fontStyle:"italic"}}>empty line</span>}</td>
+                            <td className="rr-line-controls">
+                              {lineSizes.map(s=>(
+                                <button key={s.label}
+                                  className={`rr-lsz${ov.size===s.val?" on":""}`}
+                                  onClick={()=> setOv("size", ov.size===s.val ? null : s.val)}>
+                                  {s.label}
+                                </button>
+                              ))}
+                              <button className={`rr-lsty${ov.bold===true?" on":""}`}
+                                onClick={()=> setOv("bold", ov.bold===true ? null : true)}><b>B</b></button>
+                              <button className={`rr-lsty${ov.italic===true?" on":""}`}
+                                onClick={()=> setOv("italic", ov.italic===true ? null : true)}><i>I</i></button>
+                              <button className={`rr-lalign${ov.align==="left"||!ov.align?" on":""}`}
+                                onClick={()=> setOv("align","left")}>≡</button>
+                              <button className={`rr-lalign${ov.align==="center"?" on":""}`}
+                                onClick={()=> setOv("align", ov.align==="center"?"left":"center")}>≐</button>
+                              <button className={`rr-lalign${ov.align==="right"?" on":""}`}
+                                onClick={()=> setOv("align", ov.align==="right"?"left":"right")}>⊐</button>
+                              <button className="rr-lindent"
+                                onClick={()=> setOv("indent", Math.max(0,(ov.indent||0)-1))}>←</button>
+                              <span style={{fontSize:10,color:"var(--grey2)",minWidth:14,textAlign:"center"}}>{ov.indent||0}</span>
+                              <button className="rr-lindent"
+                                onClick={()=> setOv("indent",(ov.indent||0)+1)}>→</button>
+                              {Object.keys(ov).length > 0 && (
+                                <button className="rr-lindent" style={{color:"var(--red)",fontSize:11}}
+                                  onClick={()=> setLineOv(prev=>{ const n={...prev}; delete n[idx]; return n; })}>✕</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            <div className="rr-ta-bar" style={{marginTop:0}}>
+              <span className="rr-ta-stats">{wc} words · {lc} lines · {text.length} chars</span>
+              <span className="rr-ta-hint">
+                {pages.length > 0
+                  ? `→ ${pages.length} page${pages.length>1?"s":""} · ${Object.keys(lineOv).length} line overrides`
+                  : cssReady && !fontReady ? `Loading font: ${font.label}...`
+                  : ready ? "Start typing to see preview" : "Loading..."}
+              </span>
             </div>
-          )}
-
-          {/* STATUS BAR */}
-          <div className="rr-ta-bar" style={{marginTop:0}}>
-            <span className="rr-ta-stats">{wc} words · {lc} lines · {text.length} chars</span>
-            <span className="rr-ta-hint">
-              {pages.length > 0
-                ? `→ ${pages.length} page${pages.length>1?"s":""} · ${Object.keys(lineOv).length} line overrides`
-                : ready ? "Start typing to see preview" : "Loading fonts..."}
-            </span>
           </div>
-
-          </div>{/* end padding div */}
 
           {/* CONTROLS */}
           <div className="rr-controls" style={{padding:"18px 32px 20px"}}>
@@ -1046,7 +1007,6 @@ export default function Riter() {
               </button>
             </div>
           </div>
-
         </div>
 
         {/* ── PREVIEW ── */}
@@ -1070,7 +1030,9 @@ export default function Riter() {
 
           {text.trim() && !ready && (
             <div className="rr-empty">
-              <div className="rr-empty-txt" style={{color:"var(--lime)"}}>Loading handwriting fonts...</div>
+              <div className="rr-empty-txt" style={{color:"var(--lime)"}}>
+                {cssReady ? `Loading font: ${font.label}...` : "Loading fonts..."}
+              </div>
             </div>
           )}
 
@@ -1082,7 +1044,6 @@ export default function Riter() {
             />
           ))}
         </div>
-
       </div>
     </div>
   );
